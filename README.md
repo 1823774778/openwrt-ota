@@ -46,6 +46,8 @@ rm -f /tmp/luci-indexcache* /tmp/luci-modulecache/*
 
 ## 源码和构建
 
+GitHub Actions 的 **Build APK** 工作流会在插件改动合并到 `main` 后自动构建，也可在 Actions 页面通过 **Run workflow** 手动运行。构建完成后，在该次运行的 **Artifacts → luci-app-xwrt-ota-apk** 下载 ZIP，解压得到 APK 和 `sha256sums`。工作流固定官方 apk-tools 版本并核对源码 SHA256，构建产物保留 30 天。
+
 - `luci-app-xwrt-ota/`：标准 LuCI 软件包目录，含视图、后端、菜单和 ACL。
 - `scripts/build-apk.py`：使用官方 `apk-tools 3.x` 的 `mkpkg` 生成独立安装包，不需要编译内核。
 

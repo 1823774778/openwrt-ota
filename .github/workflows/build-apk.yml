@@ -62,7 +62,7 @@ jobs:
           mkdir -p "$OUTPUT_DIR"
           python3 scripts/build-apk.py \
             --apk "$RUNNER_TEMP/apk-tools/build/src/apk" \
-            --output "$OUTPUT_DIR/luci-app-xwrt-ota-1.0.0-r1.apk"
+            --output "$OUTPUT_DIR/luci-app-xwrt-ota-1.1.0-r1.apk"
 
       - name: Verify package payload and generate checksums
         run: |
@@ -70,11 +70,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/apk-payload"
           "$RUNNER_TEMP/apk-tools/build/src/apk" extract --allow-untrusted \
             --destination "$RUNNER_TEMP/apk-payload" \
-            "$OUTPUT_DIR/luci-app-xwrt-ota-1.0.0-r1.apk"
+            "$OUTPUT_DIR/luci-app-xwrt-ota-1.1.0-r1.apk"
           test -x "$RUNNER_TEMP/apk-payload/usr/libexec/xwrt-ota"
           cmp luci-app-xwrt-ota/root/usr/libexec/xwrt-ota "$RUNNER_TEMP/apk-payload/usr/libexec/xwrt-ota"
           cmp luci-app-xwrt-ota/htdocs/luci-static/resources/view/system/xwrt-ota.js "$RUNNER_TEMP/apk-payload/www/luci-static/resources/view/system/xwrt-ota.js"
-          python3 -c 'import hashlib, os; from pathlib import Path; output=Path(os.environ["OUTPUT_DIR"]); package=output/"luci-app-xwrt-ota-1.0.0-r1.apk"; (output/"sha256sums").write_text(hashlib.sha256(package.read_bytes()).hexdigest()+"  "+package.name+"\n")'
+          python3 -c 'import hashlib, os; from pathlib import Path; output=Path(os.environ["OUTPUT_DIR"]); package=output/"luci-app-xwrt-ota-1.1.0-r1.apk"; (output/"sha256sums").write_text(hashlib.sha256(package.read_bytes()).hexdigest()+"  "+package.name+"\n")'
 
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
@@ -131,9 +131,12 @@ jobs:
               '',
               '为 XWRT 路由器的 LuCI 管理后台增加“系统 → XWRT 在线更新”页面，'
               '从 https://github.com/1823774778/XWRT 的最新正式版 Release 获取固件，'
-              '实现检查版本、下载、校验和手动确认在线升级。',
+              '进入页面即自动检查，以概览固件构建日期时间判断是否有新版本，支持下载、校验和手动确认升级。',
               '',
               '- 自动识别雅典娜或亚瑟，匹配对应的 sysupgrade.bin，不使用 factory.bin。',
+              '- 读取与“状态 → 概览”相同的构建时间，精确比较到秒；相同版本提示“当前为最新版本”。',
+              '- 操作区仅保留“清理缓存”和动态按钮：暂无更新 → 下载版本 → 安装更新。',
+              '- 下载完成后切换页面保留安装包，再次进入重新校验复用，阻止重复下载。',
               '- 显示发布说明和下载进度，核对文件大小、SHA256 及系统兼容性。',
               '- 刷写前再次校验，调用原生 sysupgrade，支持选择是否保留配置。',
               '',
@@ -151,7 +154,8 @@ jobs:
               f'apk add --allow-untrusted /tmp/{package.name}',
               '```',
               '',
-              '重新登录 LuCI，进入“系统 → XWRT 在线更新”，依次检查更新、下载并校验、确认安装。',
+              '重新登录 LuCI，进入“系统 → XWRT 在线更新”即自动检查。发现新版后点击“下载版本”，校验完成后点击“安装更新”并确认。',
+              '旧固件缺少完整构建时间时会提示无法判断；缓存保存在 /tmp，切换页面不会清理，路由器重启后需重新下载。',
               '依赖由 APK 自动处理：luci-base、rpcd-mod-file、curl、ca-bundle、jshn。'
               '路由器需要能够通过 HTTPS 访问 GitHub。',
               '',

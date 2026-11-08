@@ -4,10 +4,10 @@
 
 ## 安装
 
-安装包：`luci-app-xwrt-ota-1.0.0-r1.apk`（OpenWrt APK v3，noarch）。将安装包上传到路由器 `/tmp`，通过 SSH 执行：
+安装包：`luci-app-xwrt-ota-1.1.0-r1.apk`（OpenWrt APK v3，noarch）。将安装包上传到路由器 `/tmp`，通过 SSH 执行：
 
 ```sh
-apk add --allow-untrusted /tmp/luci-app-xwrt-ota-1.0.0-r1.apk
+apk add --allow-untrusted /tmp/luci-app-xwrt-ota-1.1.0-r1.apk
 ```
 
 随后退出并重新登录 LuCI，在 **系统 → XWRT 在线更新** 中使用。依赖由 APK 自动处理：`luci-base`、`rpcd-mod-file`、`curl`、`ca-bundle`、`jshn`。设备须能通过 HTTPS 访问 GitHub API 和 Release 下载地址。
@@ -32,13 +32,14 @@ rm -f /tmp/luci-indexcache* /tmp/luci-modulecache/*
 
 ## 更新流程
 
-1. **检查更新**：读取 `/repos/1823774778/XWRT/releases/latest`，展示发布标签、发布时间和原始发布说明。
-2. **匹配设备**：只选择本机对应的 `xwrt-*-qualcommax-ipq60xx-<profile>-squashfs-sysupgrade.bin`，兼容末尾追加 `-YYYY-MM-DD` 的文件名；不使用 `factory.bin`。缺少或匹配到多个固件时停止。
-3. **下载并校验**：后台下载到 `/tmp/xwrt-ota`，显示进度；核对文件大小、GitHub 附件 SHA256（缺失时读取同一 Release 的 `sha256sums`），调用系统 `validate_firmware_image` 检查设备兼容性。
-4. **安装更新**：二次确认并选择是否保留配置；刷写前重新核对 SHA256，再运行原生 `sysupgrade --test`，通过后调用 `sysupgrade`。不提供强制刷写选项。
-5. **重连**：等待设备重启；不保留配置时默认尝试 `192.168.10.1` 和 `xwrt.lan`。
+1. **进入页面自动检查**：读取 `/repos/1823774778/XWRT/releases/latest`，展示固件版本、构建时间和发布说明；已有后台任务时跟随进度。
+2. **比较构建日期时间**：优先读取概览版本标签同源的 `/etc/xwrt-build-time`，兼容解析系统 `release.description` 中的完整时间；与 Release 标签中的北京时间精确比较到秒。相同或本机更新时提示“当前为最新版本”，只有远端更新时才允许下载。旧固件没有完整构建时间时提示“无法判断版本”，不使用源码 revision、系统当前时间或发布时间代替。
+3. **匹配设备**：只选择本机对应的 `xwrt-*-qualcommax-ipq60xx-<profile>-squashfs-sysupgrade.bin`，兼容末尾追加 `-YYYY-MM-DD` 或 `-YYYY-MM-DD-HH.MM.SS` 的文件名；不使用 `factory.bin`。缺少或匹配到多个固件时停止。
+4. **下载并校验**：后台下载到 `/tmp/xwrt-ota`，核对文件大小、GitHub 附件 SHA256（缺失时读取同一 Release 的 `sha256sums`）和系统设备兼容性。已有相同大小、SHA256 的完整缓存时直接重新校验复用，不再下载；并发请求也不会发起第二次下载。
+5. **安装更新**：二次确认并选择是否保留配置；刷写前重新核对版本和 SHA256，再运行原生 `sysupgrade --test`，通过后调用 `sysupgrade`。不提供强制刷写选项。
+6. **重连**：等待设备重启；不保留配置时默认尝试 `192.168.10.1` 和 `xwrt.lan`。
 
-当前系统的源码版本和 Release 标签不属于同一种版本标识，同一源码也可能被重新编译，因此页面展示信息供核对，不将它们简单比较成“当前已是最新版”。固件没有可用 SHA256 时会停止。
+页面操作区只有两个按钮：“清理缓存”固定显示；动态按钮按状态显示灰色“暂无更新”、“下载版本”或“安装更新”。下载完成后切换到其他页面不会清理固件，再次进入会重新检查并显示“已下载完成，可更新”；未完成校验的文件不会直接允许安装。在线检查失败但存在已验证的新固件缓存时，会说明检查失败并允许复用缓存。缓存保存在内存 `/tmp`，只有主动清理、重新下载其他版本或路由器重启时才会失效。
 
 **保留配置不等于保留插件。** 新固件如果没有预装本插件，升级后需要重新安装本 APK；其他自行安装的软件包同理。升级前请在 LuCI 的“备份/升级”页备份重要配置。
 

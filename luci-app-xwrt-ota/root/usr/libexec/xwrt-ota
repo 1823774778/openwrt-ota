@@ -9,14 +9,15 @@ WORK=/tmp/xwrt-ota
 STATE=$WORK/state.json
 RELEASE=$WORK/release.json
 IMAGE=$WORK/firmware.bin
+IMAGE_META=$WORK/image.json
+BUILD_TIME_FILE=/etc/xwrt-build-time
 LOCK=$WORK/lock
 SELF=/usr/libexec/xwrt-ota
 JSHN=/usr/share/libubox/jshn.sh
 OWN_LOCK=0
-BOARD='' NAME='' NOTES='' PUBLISHED=''
-# jshn assigns JSON fields through variable names.
-# shellcheck disable=SC2034
-DISTRIBUTION='' VERSION='' REVISION=''
+BOARD='' MODEL='' TARGET='' NAME='' NOTES='' PUBLISHED=''
+DISTRIBUTION='' VERSION='' REVISION='' DESCRIPTION=''
+CURRENT_BUILD_TIME='' LATEST_BUILD_TIME='' VERSION_STATUS=unknown
 
 [ -r "$JSHN" ] || { printf '%s\n' '{"error":"缺少 jshn，请安装 jshn 软件包。"}'; exit 1; }
 # shellcheck source=/dev/null
@@ -75,23 +76,79 @@ acquire_lock() {
 	trap 'write_state error "任务被中断，请重试。"; exit 1' HUP INT TERM
 }
 
-load_board() {
-	local info target
-	info=$(ubus call system board 2>/dev/null) || fail '无法读取设备信息。'
-	json_load "$info" || fail '设备信息格式无效。'
+build_time() {
+	local parsed normalized
+	parsed=$(printf '%s\n' "$1" | awk '
+		{
+			line = $0
+			gsub(/\./, ":", line)
+			if (match(line, /20[0-9][0-9][-:\/][0-9][0-9][-:\/][0-9][0-9][ Tt_-][0-9][0-9]:[0-9][0-9]:[0-9][0-9]/)) {
+				value = substr(line, RSTART, 19)
+				printf "%s-%s-%s %s:%s:%s\n", substr(value, 1, 4), substr(value, 6, 2), substr(value, 9, 2), substr(value, 12, 2), substr(value, 15, 2), substr(value, 18, 2)
+				exit
+			}
+			if (match(line, /XWRT-[0-9][0-9]:[0-9][0-9]:[0-9][0-9]-[0-9][0-9]:[0-9][0-9]:[0-9][0-9]/)) {
+				value = substr(line, RSTART + 5, 17)
+				printf "20%s-%s-%s %s:%s:%s\n", substr(value, 1, 2), substr(value, 4, 2), substr(value, 7, 2), substr(value, 10, 2), substr(value, 13, 2), substr(value, 16, 2)
+				exit
+			}
+		}')
+	[ -n "$parsed" ] || return 1
+	normalized=$(date -u -d "$parsed" '+%Y-%m-%d %H:%M:%S' 2>/dev/null) || return 1
+	[ "$normalized" = "$parsed" ] || return 1
+	printf '%s\n' "$parsed"
+}
+
+read_board() {
+	local info stamp label
+	info=$(ubus call system board 2>/dev/null) || return 1
+	json_load "$info" || return 1
 	json_get_var BOARD board_name
 	json_get_var MODEL model
-	json_select release || fail '无法读取系统版本。'
+	json_select release || return 1
 	json_get_var DISTRIBUTION distribution
 	json_get_var VERSION version
 	json_get_var REVISION revision
-	json_get_var target target
+	json_get_var DESCRIPTION description
+	json_get_var TARGET target
+	CURRENT_BUILD_TIME=''
+	if [ -r "$BUILD_TIME_FILE" ]; then
+		read -r stamp < "$BUILD_TIME_FILE"
+		CURRENT_BUILD_TIME=$(build_time "$stamp")
+		if [ -n "$CURRENT_BUILD_TIME" ]; then
+			label=$(date -u -d "$CURRENT_BUILD_TIME" '+XWRT-%y.%m.%d-%H.%M.%S')
+			DESCRIPTION="${DESCRIPTION:-$DISTRIBUTION $VERSION $REVISION} / $label"
+		fi
+	fi
+	[ -n "$CURRENT_BUILD_TIME" ] || CURRENT_BUILD_TIME=$(build_time "$DESCRIPTION")
+	return 0
+}
+
+load_board() {
+	read_board || fail '无法读取设备和固件版本信息。'
 	case "$BOARD" in
 		jdcloud,re-cs-02) PROFILE=jdcloud_re-cs-02 ;;
 		jdcloud,re-ss-01) PROFILE=jdcloud_re-ss-01 ;;
 		*) fail '当前版本仅支持京东云雅典娜 RE-CS-02 和亚瑟 RE-SS-01。' ;;
 	esac
-	[ "$target" = qualcommax/ipq60xx ] || fail '当前系统平台不是 qualcommax/ipq60xx，已停止更新。'
+	[ "$TARGET" = qualcommax/ipq60xx ] || fail '当前系统平台不是 qualcommax/ipq60xx，已停止更新。'
+}
+
+compare_versions() {
+	VERSION_STATUS=unknown
+	if [ -n "$CURRENT_BUILD_TIME" ] && [ -n "$LATEST_BUILD_TIME" ]; then
+		if [ "$LATEST_BUILD_TIME" = "$CURRENT_BUILD_TIME" ] || [ "$LATEST_BUILD_TIME" \< "$CURRENT_BUILD_TIME" ]; then
+			VERSION_STATUS=current
+		else
+			VERSION_STATUS=update
+		fi
+	fi
+}
+
+require_update() {
+	compare_versions
+	[ "$VERSION_STATUS" != current ] || fail '当前为最新版本，无需下载或安装相同或更早的固件。'
+	[ "$VERSION_STATUS" = update ] || fail '缺少完整的固件构建日期时间，无法判断是否有更新。'
 }
 
 valid_hash() {
@@ -112,7 +169,7 @@ fetch() {
 		--proto '=https' --proto-redir '=https' --tlsv1.2 \
 		--connect-timeout 15 --max-time "$timeout" --max-redirs 5 \
 		--max-filesize "$limit" --speed-limit 1024 --speed-time 45 \
-		--user-agent 'luci-app-xwrt-ota/1.0.0' \
+		--user-agent 'luci-app-xwrt-ota/1.1.0' \
 		--header 'Accept: application/vnd.github+json' \
 		--output "$output" "$url" 2> "$WORK/curl-error.log"
 }
@@ -129,6 +186,9 @@ read_release() {
 	json_get_var SHA256 sha256
 	json_get_var RELEASE_PROFILE profile
 	json_get_var SOURCE_REVISION source_revision
+	json_get_var LATEST_BUILD_TIME build_time
+	[ -n "$LATEST_BUILD_TIME" ] || LATEST_BUILD_TIME=$(build_time "$TAG")
+	[ -n "$LATEST_BUILD_TIME" ] || LATEST_BUILD_TIME=$(build_time "$NAME")
 	[ "$RELEASE_PROFILE" = "$PROFILE" ] || fail '固件机型不匹配，请重新检查更新。'
 	valid_asset_url "$ASSET_URL" || fail '固件下载地址无效。'
 	valid_hash "$SHA256" || fail '固件缺少有效的 SHA256。'
@@ -143,9 +203,19 @@ check_release() {
 	local sums_url='' sums_hash='' sum_count=0 sum_name sum_extra release_rev
 	load_board
 	write_state checking '正在读取 GitHub 最新正式版…'
-	rm -f "$IMAGE" "$IMAGE.part" "$RELEASE"
-	fetch "https://api.github.com/repos/$REPOSITORY/releases/latest" "$WORK/github.json" 2097152 45 ||
+	if ! fetch "https://api.github.com/repos/$REPOSITORY/releases/latest" "$WORK/github.json" 2097152 45; then
+		if [ -s "$RELEASE" ] && [ -s "$IMAGE_META" ]; then
+			read_release
+			compare_versions
+			if [ "$VERSION_STATUS" = update ] && image_matches_release; then
+				verify_image
+				save_image_metadata || fail '无法保存固件缓存信息。'
+				write_state ready '在线检查失败；已下载完成的固件已重新校验，可更新。'
+				return 0
+			fi
+		fi
 		fail '无法获取 GitHub Release，请检查联网、TLS 时间或 API 限流后重试。'
+	fi
 	json_load_file "$WORK/github.json" || fail 'GitHub 返回了无效的 JSON。'
 	json_get_var TAG tag_name
 	json_get_var NAME name
@@ -167,7 +237,7 @@ check_release() {
 		case "$filename" in
 			xwrt-*-qualcommax-ipq60xx-"$PROFILE"-squashfs-sysupgrade*.bin)
 				tail=${filename##*-squashfs-sysupgrade}
-				case "$tail" in .bin|-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].bin) ;;
+				case "$tail" in .bin|-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].bin|-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9].[0-9][0-9].[0-9][0-9].bin) ;;
 					*) json_select ..; continue ;;
 				esac
 				valid_asset_url "$url" || fail 'GitHub 固件附件地址无效。'
@@ -201,6 +271,9 @@ check_release() {
 	fi
 	release_rev=${ASSET_NAME#xwrt-}
 	SOURCE_REVISION=${release_rev%%-qualcommax-*}
+	LATEST_BUILD_TIME=$(build_time "$TAG")
+	[ -n "$LATEST_BUILD_TIME" ] || LATEST_BUILD_TIME=$(build_time "$NAME")
+	[ -n "$LATEST_BUILD_TIME" ] || LATEST_BUILD_TIME=$(build_time "$NOTES")
 	json_init
 	json_add_string repository "$REPOSITORY"
 	json_add_string tag "$TAG"
@@ -213,10 +286,43 @@ check_release() {
 	json_add_int asset_size "$ASSET_SIZE"
 	json_add_string sha256 "$SHA256"
 	json_add_string source_revision "$SOURCE_REVISION"
+	json_add_string build_time "$LATEST_BUILD_TIME"
 	if ! json_dump > "$RELEASE.new" || ! mv -f "$RELEASE.new" "$RELEASE"; then
 		fail '无法保存发布信息。'
 	fi
-	write_state available '已找到适用于当前设备的正式版固件，请核对发布版本后下载。'
+	compare_versions
+	case "$VERSION_STATUS" in
+		current) write_state current '当前为最新版本，暂无更新。' ;;
+		unknown) write_state version_unknown '当前固件或发布版本缺少完整的构建日期时间，无法自动判断版本。' ;;
+		update)
+			if image_matches_release; then
+				write_state verifying '正在核对已下载的固件…'
+				verify_image
+				save_image_metadata || fail '无法保存固件缓存信息。'
+				write_state ready '已下载完成，可更新。'
+			else
+				write_state available '发现新版本，可以下载版本。'
+			fi
+			;;
+	esac
+}
+
+image_matches_release() {
+	local size actual
+	[ -f "$IMAGE" ] && [ ! -L "$IMAGE" ] || return 1
+	size=$(wc -c < "$IMAGE" | tr -d ' ')
+	[ "$size" = "$ASSET_SIZE" ] || return 1
+	actual=$(sha256sum "$IMAGE") || return 1
+	[ "${actual%% *}" = "$SHA256" ]
+}
+
+save_image_metadata() {
+	json_init
+	json_add_string sha256 "$SHA256"
+	json_add_int size "$ASSET_SIZE"
+	json_add_string profile "$PROFILE"
+	json_add_boolean allow_backup "${ALLOW_BACKUP:-0}"
+	json_dump > "$IMAGE_META.new" && mv -f "$IMAGE_META.new" "$IMAGE_META"
 }
 
 verify_image() {
@@ -240,10 +346,18 @@ download_image() {
 	local free_kb
 	load_board
 	read_release
+	require_update
+	if image_matches_release; then
+		write_state verifying '正在核对已下载的固件，跳过重复下载…'
+		verify_image
+		save_image_metadata || fail '无法保存固件缓存信息。'
+		write_state ready '已下载完成，可更新，无需重复下载。'
+		return 0
+	fi
 	free_kb=$(df -Pk "$WORK" | awk 'NR==2 {print $4}')
 	case "$free_kb" in ''|*[!0-9]*) fail '无法读取临时空间大小。' ;; esac
 	[ "$free_kb" -gt "$((ASSET_SIZE / 1024 + 16384))" ] || fail '临时空间不足，需要固件大小加至少 16 MiB 的可用空间。'
-	rm -f "$IMAGE" "$IMAGE.part"
+	rm -f "$IMAGE_META" "$IMAGE.part"
 	write_state downloading '正在下载固件…'
 	fetch "$ASSET_URL" "$IMAGE.part" "$ASSET_SIZE" 900 || {
 		rm -f "$IMAGE.part"
@@ -252,7 +366,8 @@ download_image() {
 	mv -f "$IMAGE.part" "$IMAGE" || fail '无法保存下载的固件。'
 	write_state verifying '正在验证 SHA256 和设备兼容性…'
 	verify_image
-	write_state ready 'SHA256 和系统兼容性检查通过，可以确认升级。'
+	save_image_metadata || fail '无法保存固件缓存信息。'
+	write_state ready '已下载完成，可更新。'
 }
 
 upgrade_image() {
@@ -263,6 +378,7 @@ upgrade_image() {
 	load_board
 	read_release
 	[ "$SHA256" = "$expected" ] || fail '待升级固件已变化，请重新核对并确认。'
+	require_update
 	write_state verifying '正在进行刷写前的最终校验…'
 	verify_image
 	set -- /sbin/sysupgrade
@@ -283,10 +399,9 @@ upgrade_image() {
 }
 
 status() {
-	local phase=idle message='点击检查更新以读取最新正式版。' updated=0 backup=0
-	local current_revision='' current_distribution='' current_version='' board='' model='' bytes=0
-	local busy=0 name='' tag='' notes='' published='' asset='' size=0 sha='' source=''
-	local info
+	local phase=idle message='进入页面后自动检查最新版本。' updated=0 backup=0
+	local busy=0 name='' tag='' notes='' published='' asset='' size=0 sha='' source='' profile=''
+	local bytes=0 image_size=0 cached_sha='' cached_size=0 cached_profile='' download_ready=0 has_update=0
 	if [ -s "$STATE" ]; then
 		json_load_file "$STATE" && {
 			json_get_var phase phase
@@ -300,7 +415,7 @@ status() {
 		checking|downloading|verifying|flashing)
 			if [ "$busy" = 0 ]; then
 				phase=error
-				message='上次任务已中断，请重新检查更新。'
+				message='上次任务已中断，请重新进入页面检查更新。'
 			fi
 			;;
 	esac
@@ -314,18 +429,39 @@ status() {
 			json_get_var size asset_size
 			json_get_var sha sha256
 			json_get_var source source_revision
+			json_get_var profile profile
+			json_get_var LATEST_BUILD_TIME build_time
 		}
 	fi
+	if [ -f "$IMAGE" ] && [ ! -L "$IMAGE" ]; then
+		image_size=$(wc -c < "$IMAGE" | tr -d ' ')
+	fi
+	if [ -f "$IMAGE_META" ]; then
+		json_load_file "$IMAGE_META" && {
+			json_get_var cached_sha sha256
+			json_get_var cached_size size
+			json_get_var cached_profile profile
+		}
+	fi
+	bytes=$image_size
 	[ ! -f "$IMAGE.part" ] || bytes=$(wc -c < "$IMAGE.part" | tr -d ' ')
-	[ ! -f "$IMAGE" ] || bytes=$(wc -c < "$IMAGE" | tr -d ' ')
-	info=$(ubus call system board 2>/dev/null)
-	if json_load "$info"; then
-		json_get_var board board_name
-		json_get_var model model
-		if json_select release; then
-			json_get_var current_revision revision
-			json_get_var current_version version
-			json_get_var current_distribution distribution
+	read_board || CURRENT_BUILD_TIME=''
+	compare_versions
+	[ "$VERSION_STATUS" != update ] || has_update=1
+	if [ "$phase" = ready ] && [ "$busy" = 0 ]; then
+		if [ "$VERSION_STATUS" = current ]; then
+			phase=current
+			message='当前为最新版本，暂无更新。'
+		elif [ "$VERSION_STATUS" != update ]; then
+			phase=version_unknown
+			message='当前固件缺少完整的构建日期时间，无法自动判断版本。'
+		elif [ "$image_size" = "$size" ] && [ "$image_size" -gt 0 ] &&
+			[ "$cached_sha" = "$sha" ] && [ "$cached_size" = "$size" ] &&
+			[ "$cached_profile" = "$profile" ] && [ "${BOARD%%,*}_${BOARD#*,}" = "$profile" ]; then
+			download_ready=1
+		else
+			phase=available
+			message='缓存不存在或与版本不符，请下载版本。'
 		fi
 	fi
 	json_init
@@ -334,12 +470,18 @@ status() {
 	json_add_int updated_at "${updated:-0}"
 	json_add_boolean busy "$busy"
 	json_add_boolean allow_backup "${backup:-0}"
+	json_add_boolean has_update "$has_update"
+	json_add_boolean download_ready "$download_ready"
+	json_add_string version_status "$VERSION_STATUS"
+	json_add_string current_build_time "$CURRENT_BUILD_TIME"
+	json_add_string latest_build_time "$LATEST_BUILD_TIME"
+	json_add_string current_description "$DESCRIPTION"
 	json_add_string repository "$REPOSITORY"
-	json_add_string board "$board"
-	json_add_string model "$model"
-	json_add_string current_revision "$current_revision"
-	json_add_string current_version "$current_version"
-	json_add_string current_distribution "$current_distribution"
+	json_add_string board "$BOARD"
+	json_add_string model "$MODEL"
+	json_add_string current_revision "$REVISION"
+	json_add_string current_version "$VERSION"
+	json_add_string current_distribution "$DISTRIBUTION"
 	json_add_string name "$name"
 	json_add_string tag "$tag"
 	json_add_string notes "$notes"
@@ -386,7 +528,7 @@ case "$1" in
 		;;
 	clean)
 		acquire_lock
-		rm -f "$IMAGE" "$IMAGE.part" "$RELEASE" "$WORK/github.json" "$WORK/sha256sums"
+		rm -f "$IMAGE" "$IMAGE.part" "$IMAGE_META" "$RELEASE" "$WORK/github.json" "$WORK/sha256sums"
 		write_state idle '缓存已清理，可以重新检查更新。'
 		release_lock
 		status

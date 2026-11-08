@@ -1,17 +1,6 @@
 name: Build APK
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'luci-app-xwrt-ota/**'
-      - 'scripts/build-apk.py'
-      - '.github/workflows/build-apk.yml'
-  pull_request:
-    paths:
-      - 'luci-app-xwrt-ota/**'
-      - 'scripts/build-apk.py'
-      - '.github/workflows/build-apk.yml'
   workflow_dispatch:
 
 permissions:

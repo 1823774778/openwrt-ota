@@ -42,7 +42,7 @@ rm -f /tmp/luci-indexcache* /tmp/luci-modulecache/*
 
 **保留配置不等于保留插件。** 新固件如果没有预装本插件，升级后需要重新安装本 APK；其他自行安装的软件包同理。升级前请在 LuCI 的“备份/升级”页备份重要配置。
 
-后端会串行执行更新任务，浏览器关闭后下载可继续。出现错误时可查看 `/tmp/xwrt-ota/worker.log`、`curl-error.log`、`validation.log` 和 `upgrade.log`。
+后端会串行执行更新任务，浏览器关闭后下载可继续。异常中断留下任务锁时，重启路由器会清除内存中的临时状态，再重新检查更新。出现错误时可查看 `/tmp/xwrt-ota/worker.log`、`curl-error.log`、`validation.log` 和 `upgrade.log`。
 
 ## 源码和构建
 
@@ -55,4 +55,4 @@ python3 scripts/build-apk.py --apk /path/to/apk
 
 如需以后预装到固件，可将插件目录复制到 OpenWrt 源码的 `package/`，选择 `CONFIG_PACKAGE_luci-app-xwrt-ota=y` 后按固件正常流程编译。
 
-宿主验证包括脚本与 JSON 语法、隔离环境中的设备/Release/下载校验流程以及 APK 文件完整性。没有连接实体路由器执行刷机，设备上的实际安装、闪存写入和重启仍需实机验证。
+已完成脚本、JavaScript 与 JSON 语法检查；真实 BusyBox ash + OpenWrt jshn 下的 21 项隔离后端检查；模拟后端下的浏览器下载/确认/取消流程；APK 完整性、解包一致性、隔离根安装/卸载及安装脚本执行检查。真实固件的软件包清单已确认包含全部依赖。当前沙箱出口的 GitHub 匿名 API 曾出现配额耗尽（403），插件会报告网络/API 限流错误；带授权连接读取的真实 Release 数据及实际固件 SHA256 已核对。没有连接实体路由器执行刷机，设备上的实际安装、闪存写入和重启仍需实机验证。

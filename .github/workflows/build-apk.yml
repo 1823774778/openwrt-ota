@@ -96,3 +96,106 @@ jobs:
             ${{ env.OUTPUT_DIR }}/sha256sums
           if-no-files-found: error
           retention-days: 30
+
+  release:
+    name: Publish APK release
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified APK
+        uses: actions/download-artifact@v4
+        with:
+          name: luci-app-xwrt-ota-apk
+          path: release-assets
+
+      - name: Prepare plugin usage notes
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import os
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          assets = Path('release-assets')
+          packages = sorted(assets.glob('*.apk'))
+          if len(packages) != 1:
+              raise SystemExit('Expected exactly one verified APK')
+          package = packages[0]
+          checksum = hashlib.sha256(package.read_bytes()).hexdigest()
+          if (assets / 'sha256sums').read_text().strip() != f'{checksum}  {package.name}':
+              raise SystemExit('APK checksum does not match the build artifact')
+          name = 'luci-app-xwrt-ota'
+          version = package.stem.removeprefix(f'{name}-')
+          timestamp = datetime.now(ZoneInfo('Asia/Shanghai'))
+          run_id = os.environ['GITHUB_RUN_ID']
+          attempt = os.environ['GITHUB_RUN_ATTEMPT']
+          tag = f'{name}-v{version}-build-{run_id}.{attempt}'
+          title = f'XWRT 在线更新插件 {version} · {timestamp:%Y-%m-%d %H:%M:%S} (UTC+8)'
+          run_url = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run_id}"
+          notes = [
+              '## 插件作用和用途',
+              '',
+              '为 XWRT 路由器的 LuCI 管理后台增加“系统 → XWRT 在线更新”页面，'
+              '从 https://github.com/1823774778/XWRT 的最新正式版 Release 获取固件，'
+              '实现检查版本、下载、校验和手动确认在线升级。',
+              '',
+              '- 自动识别雅典娜或亚瑟，匹配对应的 sysupgrade.bin，不使用 factory.bin。',
+              '- 显示发布说明和下载进度，核对文件大小、SHA256 及系统兼容性。',
+              '- 刷写前再次校验，调用原生 sysupgrade，支持选择是否保留配置。',
+              '',
+              '## 适配范围',
+              '',
+              '- 京东云雅典娜 RE-CS-02、京东云亚瑟 RE-SS-01。',
+              '- qualcommax/ipq60xx 平台，使用 APK 和现代 JavaScript LuCI 的 XWRT。',
+              '- 本 APK 为 noarch 插件安装包；它不包含路由器固件。',
+              '',
+              '## 安装和使用',
+              '',
+              '下载下面的 APK 并上传到路由器 /tmp，通过 SSH 执行：',
+              '',
+              '```sh',
+              f'apk add --allow-untrusted /tmp/{package.name}',
+              '```',
+              '',
+              '重新登录 LuCI，进入“系统 → XWRT 在线更新”，依次检查更新、下载并校验、确认安装。',
+              '依赖由 APK 自动处理：luci-base、rpcd-mod-file、curl、ca-bundle、jshn。'
+              '路由器需要能够通过 HTTPS 访问 GitHub。',
+              '',
+              '升级前请备份重要配置。保留配置不会自动保留额外安装的软件包；'
+              '新固件未预装本插件时，升级后需要重新安装 APK。实机刷写和重启尚未验证。',
+              '',
+              '## 构建信息',
+              '',
+              f'- 插件版本：{version}',
+              f'- 构建时间：{timestamp:%Y-%m-%d %H:%M:%S}（Asia/Shanghai）',
+              f"- 源码提交：{os.environ['GITHUB_SHA']}",
+              f'- SHA256：`{checksum}`',
+              f'- 构建记录：{run_url}',
+              '',
+              '本次发布仅上传 .apk 附件。GitHub 自动生成的 Source code 归档由平台提供。',
+              '',
+          ]
+          notes_path = Path(os.environ['RUNNER_TEMP']) / 'apk-release-notes.txt'
+          notes_path.write_text('\n'.join(notes))
+          with Path(os.environ['GITHUB_ENV']).open('a') as output:
+              output.write(f'RELEASE_TAG={tag}\n')
+              output.write(f'RELEASE_TITLE={title}\n')
+              output.write(f'RELEASE_NOTES={notes_path}\n')
+              output.write(f'RELEASE_APK={package}\n')
+          PY
+
+      - name: Publish APK release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$RELEASE_TAG" "$RELEASE_APK" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$RELEASE_TITLE" \
+            --notes-file "$RELEASE_NOTES" \
+            --latest

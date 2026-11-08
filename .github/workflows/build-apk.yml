@@ -1,0 +1,98 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'luci-app-xwrt-ota/**'
+      - 'scripts/build-apk.py'
+      - '.github/workflows/build-apk.yml'
+  pull_request:
+    paths:
+      - 'luci-app-xwrt-ota/**'
+      - 'scripts/build-apk.py'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apk-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APK_TOOLS_COMMIT: b5a31c0d865342ad80be10d68f1bb3d3ad9b0866
+  APK_TOOLS_SHA256: 598056e338fa96af030b0f6f2127cc7df151e6f078b0e44a5cae95cc4bba1f79
+
+jobs:
+  build:
+    name: Build and verify APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential ca-certificates curl libssl-dev meson ninja-build \
+            pkg-config python3 shellcheck zlib1g-dev
+
+      - name: Check plugin syntax
+        run: |
+          shellcheck -s ash luci-app-xwrt-ota/root/usr/libexec/xwrt-ota
+          node -e 'new Function(require("node:fs").readFileSync("luci-app-xwrt-ota/htdocs/luci-static/resources/view/system/xwrt-ota.js", "utf8"))'
+          python3 -c 'import ast, json; from pathlib import Path; ast.parse(Path("scripts/build-apk.py").read_text()); [json.loads(p.read_text()) for p in Path("luci-app-xwrt-ota/root/usr/share").rglob("*.json")]'
+
+      - name: Build pinned official apk-tools
+        run: |
+          set -euo pipefail
+          tools="$RUNNER_TEMP/apk-tools"
+          mkdir -p "$tools"
+          curl --fail --location --silent --show-error \
+            --proto '=https' --proto-redir '=https' \
+            --connect-timeout 20 --max-time 180 \
+            "https://codeload.github.com/alpinelinux/apk-tools/tar.gz/$APK_TOOLS_COMMIT" \
+            --output "$tools/source.tar.gz"
+          printf '%s  %s\n' "$APK_TOOLS_SHA256" "$tools/source.tar.gz" | sha256sum -c -
+          tar -xzf "$tools/source.tar.gz" -C "$tools"
+          meson setup "$tools/build" "$tools/apk-tools-$APK_TOOLS_COMMIT" \
+            -Ddefault_library=static -Dcrypto_backend=openssl -Durl_backend=wget \
+            -Ddocs=disabled -Dhelp=disabled -Dlua=disabled -Dpython=disabled \
+            -Dtests=disabled -Dzstd=disabled
+          meson compile -C "$tools/build"
+          "$tools/build/src/apk" --version
+
+      - name: Build independent APK
+        run: |
+          export OUTPUT_DIR="$RUNNER_TEMP/xwrt-ota-output"
+          printf 'OUTPUT_DIR=%s\n' "$OUTPUT_DIR" >> "$GITHUB_ENV"
+          mkdir -p "$OUTPUT_DIR"
+          python3 scripts/build-apk.py \
+            --apk "$RUNNER_TEMP/apk-tools/build/src/apk" \
+            --output "$OUTPUT_DIR/luci-app-xwrt-ota-1.0.0-r1.apk"
+
+      - name: Verify package payload and generate checksums
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/apk-payload"
+          "$RUNNER_TEMP/apk-tools/build/src/apk" extract --allow-untrusted \
+            --destination "$RUNNER_TEMP/apk-payload" \
+            "$OUTPUT_DIR/luci-app-xwrt-ota-1.0.0-r1.apk"
+          test -x "$RUNNER_TEMP/apk-payload/usr/libexec/xwrt-ota"
+          cmp luci-app-xwrt-ota/root/usr/libexec/xwrt-ota "$RUNNER_TEMP/apk-payload/usr/libexec/xwrt-ota"
+          cmp luci-app-xwrt-ota/htdocs/luci-static/resources/view/system/xwrt-ota.js "$RUNNER_TEMP/apk-payload/www/luci-static/resources/view/system/xwrt-ota.js"
+          python3 -c 'import hashlib, os; from pathlib import Path; output=Path(os.environ["OUTPUT_DIR"]); package=output/"luci-app-xwrt-ota-1.0.0-r1.apk"; (output/"sha256sums").write_text(hashlib.sha256(package.read_bytes()).hexdigest()+"  "+package.name+"\n")'
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: luci-app-xwrt-ota-apk
+          path: |
+            ${{ env.OUTPUT_DIR }}/*.apk
+            ${{ env.OUTPUT_DIR }}/sha256sums
+          if-no-files-found: error
+          retention-days: 30

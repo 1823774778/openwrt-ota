@@ -1,0 +1,412 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+
+umask 077
+export LC_ALL=C
+
+REPOSITORY=1823774778/XWRT
+WORK=/tmp/xwrt-ota
+STATE=$WORK/state.json
+RELEASE=$WORK/release.json
+IMAGE=$WORK/firmware.bin
+LOCK=$WORK/lock
+SELF=/usr/libexec/xwrt-ota
+JSHN=/usr/share/libubox/jshn.sh
+OWN_LOCK=0
+BOARD='' NAME='' NOTES='' PUBLISHED=''
+# jshn assigns JSON fields through variable names.
+# shellcheck disable=SC2034
+DISTRIBUTION='' VERSION='' REVISION=''
+
+[ -r "$JSHN" ] || { printf '%s\n' '{"error":"缺少 jshn，请安装 jshn 软件包。"}'; exit 1; }
+# shellcheck source=/dev/null
+. "$JSHN"
+mkdir -p "$WORK" || exit 1
+
+reply_error() {
+	json_init
+	json_add_string error "$1"
+	json_dump
+	exit 1
+}
+
+write_state() {
+	json_init
+	json_add_string phase "$1"
+	json_add_string message "$2"
+	json_add_int updated_at "$(date +%s)"
+	[ "$1" != ready ] || json_add_boolean allow_backup "${ALLOW_BACKUP:-0}"
+	json_dump > "$STATE.$$" && mv -f "$STATE.$$" "$STATE"
+}
+
+fail() {
+	write_state error "$1"
+	reply_error "$1"
+}
+
+release_lock() {
+	local owner
+	[ "$OWN_LOCK" = 1 ] || return 0
+	read -r owner < "$LOCK/pid" 2>/dev/null
+	if [ "$owner" = "$$" ]; then
+		rm -f "$LOCK/pid"
+		rmdir "$LOCK" 2>/dev/null
+	fi
+	OWN_LOCK=0
+}
+
+job_alive() {
+	local pid
+	[ -r "$LOCK/pid" ] || return 1
+	read -r pid < "$LOCK/pid"
+	case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+	kill -0 "$pid" 2>/dev/null && [ -r "/proc/$pid/cmdline" ] &&
+		tr '\000' '\n' < "/proc/$pid/cmdline" | grep -Fxq "$SELF"
+}
+
+acquire_lock() {
+	if ! mkdir "$LOCK" 2>/dev/null; then
+		job_alive && reply_error '已有任务正在运行，请等待任务完成。'
+		reply_error '任务正在启动或上次被异常中断。请稍后重试；若持续出现，请重启路由器后再试。'
+	fi
+	printf '%s\n' "$$" > "$LOCK/pid"
+	OWN_LOCK=1
+	trap release_lock EXIT
+	trap 'write_state error "任务被中断，请重试。"; exit 1' HUP INT TERM
+}
+
+load_board() {
+	local info target
+	info=$(ubus call system board 2>/dev/null) || fail '无法读取设备信息。'
+	json_load "$info" || fail '设备信息格式无效。'
+	json_get_var BOARD board_name
+	json_get_var MODEL model
+	json_select release || fail '无法读取系统版本。'
+	json_get_var DISTRIBUTION distribution
+	json_get_var VERSION version
+	json_get_var REVISION revision
+	json_get_var target target
+	case "$BOARD" in
+		jdcloud,re-cs-02) PROFILE=jdcloud_re-cs-02 ;;
+		jdcloud,re-ss-01) PROFILE=jdcloud_re-ss-01 ;;
+		*) fail '当前版本仅支持京东云雅典娜 RE-CS-02 和亚瑟 RE-SS-01。' ;;
+	esac
+	[ "$target" = qualcommax/ipq60xx ] || fail '当前系统平台不是 qualcommax/ipq60xx，已停止更新。'
+}
+
+valid_hash() {
+	[ "${#1}" = 64 ] && ! printf '%s' "$1" | grep -q '[^0-9a-f]'
+}
+
+valid_asset_url() {
+	case "$1" in
+		"https://github.com/$REPOSITORY/releases/download/"*) ;;
+		*) return 1 ;;
+	esac
+	! printf '%s' "$1" | grep -q '[^A-Za-z0-9_./:%+?=&~-]'
+}
+
+fetch() {
+	local url=$1 output=$2 limit=$3 timeout=$4
+	curl --fail --location --silent --show-error \
+		--proto '=https' --proto-redir '=https' --tlsv1.2 \
+		--connect-timeout 15 --max-time "$timeout" --max-redirs 5 \
+		--max-filesize "$limit" --speed-limit 1024 --speed-time 45 \
+		--user-agent 'luci-app-xwrt-ota/1.0.0' \
+		--header 'Accept: application/vnd.github+json' \
+		--output "$output" "$url" 2> "$WORK/curl-error.log"
+}
+
+read_release() {
+	json_load_file "$RELEASE" || fail '缺少有效的发布信息，请先检查更新。'
+	json_get_var TAG tag
+	json_get_var NAME name
+	json_get_var NOTES notes
+	json_get_var PUBLISHED published_at
+	json_get_var ASSET_NAME asset_name
+	json_get_var ASSET_URL asset_url
+	json_get_var ASSET_SIZE asset_size
+	json_get_var SHA256 sha256
+	json_get_var RELEASE_PROFILE profile
+	json_get_var SOURCE_REVISION source_revision
+	[ "$RELEASE_PROFILE" = "$PROFILE" ] || fail '固件机型不匹配，请重新检查更新。'
+	valid_asset_url "$ASSET_URL" || fail '固件下载地址无效。'
+	valid_hash "$SHA256" || fail '固件缺少有效的 SHA256。'
+	case "$ASSET_SIZE" in ''|*[!0-9]*) fail '固件大小无效。' ;; esac
+	if [ "$ASSET_SIZE" -le 1048576 ] || [ "$ASSET_SIZE" -gt 268435456 ]; then
+		fail '固件大小超出允许范围。'
+	fi
+}
+
+check_release() {
+	local keys key draft prerelease filename url size digest tail matches=0
+	local sums_url='' sums_hash='' sum_count=0 sum_name sum_extra release_rev
+	load_board
+	write_state checking '正在读取 GitHub 最新正式版…'
+	rm -f "$IMAGE" "$IMAGE.part" "$RELEASE"
+	fetch "https://api.github.com/repos/$REPOSITORY/releases/latest" "$WORK/github.json" 2097152 45 ||
+		fail '无法获取 GitHub Release，请检查联网、TLS 时间或 API 限流后重试。'
+	json_load_file "$WORK/github.json" || fail 'GitHub 返回了无效的 JSON。'
+	json_get_var TAG tag_name
+	json_get_var NAME name
+	json_get_var NOTES body
+	json_get_var PUBLISHED published_at
+	json_get_var draft draft
+	json_get_var prerelease prerelease
+	if [ -z "$TAG" ] || [ "$draft" != 0 ] || [ "$prerelease" != 0 ]; then
+		fail '没有可用的正式版固件。'
+	fi
+	json_select assets || fail '此版本没有固件附件。'
+	json_get_keys keys
+	for key in $keys; do
+		json_select "$key"
+		json_get_var filename name
+		json_get_var url browser_download_url
+		json_get_var size size
+		json_get_var digest digest
+		case "$filename" in
+			xwrt-*-qualcommax-ipq60xx-"$PROFILE"-squashfs-sysupgrade*.bin)
+				tail=${filename##*-squashfs-sysupgrade}
+				case "$tail" in .bin|-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].bin) ;;
+					*) json_select ..; continue ;;
+				esac
+				valid_asset_url "$url" || fail 'GitHub 固件附件地址无效。'
+				ASSET_NAME=$filename ASSET_URL=$url ASSET_SIZE=$size
+				SHA256=${digest#sha256:}
+				matches=$((matches + 1))
+				;;
+			sha256sums)
+				valid_asset_url "$url" && sums_url=$url
+				;;
+		esac
+		json_select ..
+	done
+	[ "$matches" = 1 ] || fail '最新版本中未找到唯一匹配本机的 sysupgrade.bin，请查看 Release 附件。'
+	if ! valid_hash "$SHA256"; then
+		[ -n "$sums_url" ] || fail 'Release 没有附件 SHA256 或 sha256sums，无法安全升级。'
+		fetch "$sums_url" "$WORK/sha256sums" 262144 45 || fail '无法下载 SHA256 校验文件。'
+		while read -r sums_hash sum_name sum_extra; do
+			sum_name=${sum_name#\*}
+			sum_name=${sum_name#./}
+			if [ "$sum_name" = "$ASSET_NAME" ] && [ -z "$sum_extra" ] && valid_hash "$sums_hash"; then
+				SHA256=$sums_hash
+				sum_count=$((sum_count + 1))
+			fi
+		done < "$WORK/sha256sums"
+		[ "$sum_count" = 1 ] || fail '校验文件中没有唯一的固件 SHA256。'
+	fi
+	case "$ASSET_SIZE" in ''|*[!0-9]*) fail 'GitHub 返回的固件大小无效。' ;; esac
+	if [ "$ASSET_SIZE" -le 1048576 ] || [ "$ASSET_SIZE" -gt 268435456 ]; then
+		fail '固件大小超出允许范围。'
+	fi
+	release_rev=${ASSET_NAME#xwrt-}
+	SOURCE_REVISION=${release_rev%%-qualcommax-*}
+	json_init
+	json_add_string repository "$REPOSITORY"
+	json_add_string tag "$TAG"
+	json_add_string name "$NAME"
+	json_add_string notes "$NOTES"
+	json_add_string published_at "$PUBLISHED"
+	json_add_string profile "$PROFILE"
+	json_add_string asset_name "$ASSET_NAME"
+	json_add_string asset_url "$ASSET_URL"
+	json_add_int asset_size "$ASSET_SIZE"
+	json_add_string sha256 "$SHA256"
+	json_add_string source_revision "$SOURCE_REVISION"
+	if ! json_dump > "$RELEASE.new" || ! mv -f "$RELEASE.new" "$RELEASE"; then
+		fail '无法保存发布信息。'
+	fi
+	write_state available '已找到适用于当前设备的正式版固件，请核对发布版本后下载。'
+}
+
+verify_image() {
+	local actual result valid size
+	if [ ! -f "$IMAGE" ] || [ -L "$IMAGE" ]; then
+		fail '固件文件不存在，请重新下载。'
+	fi
+	size=$(wc -c < "$IMAGE" | tr -d ' ')
+	[ "$size" = "$ASSET_SIZE" ] || fail '固件大小与 Release 记录不一致，请重新下载。'
+	actual=$(sha256sum "$IMAGE") || fail '无法计算固件 SHA256。'
+	actual=${actual%% *}
+	[ "$actual" = "$SHA256" ] || fail 'SHA256 校验失败，已禁止刷写，请重新下载。'
+	result=$(/usr/libexec/validate_firmware_image "$IMAGE" 2> "$WORK/validation.log") || fail '系统固件校验失败。'
+	json_load "$result" || fail '系统没有返回有效的固件校验结果。'
+	json_get_var valid valid
+	json_get_var ALLOW_BACKUP allow_backup
+	[ "$valid" = 1 ] || fail '固件未通过系统的格式或设备兼容性检查，已禁止刷写。'
+}
+
+download_image() {
+	local free_kb
+	load_board
+	read_release
+	free_kb=$(df -Pk "$WORK" | awk 'NR==2 {print $4}')
+	case "$free_kb" in ''|*[!0-9]*) fail '无法读取临时空间大小。' ;; esac
+	[ "$free_kb" -gt "$((ASSET_SIZE / 1024 + 16384))" ] || fail '临时空间不足，需要固件大小加至少 16 MiB 的可用空间。'
+	rm -f "$IMAGE" "$IMAGE.part"
+	write_state downloading '正在下载固件…'
+	fetch "$ASSET_URL" "$IMAGE.part" "$ASSET_SIZE" 900 || {
+		rm -f "$IMAGE.part"
+		fail '固件下载失败，请检查网络后重试。'
+	}
+	mv -f "$IMAGE.part" "$IMAGE" || fail '无法保存下载的固件。'
+	write_state verifying '正在验证 SHA256 和设备兼容性…'
+	verify_image
+	write_state ready 'SHA256 和系统兼容性检查通过，可以确认升级。'
+}
+
+upgrade_image() {
+	local keep=$1 expected=$2 phase
+	json_load_file "$STATE" || fail '尚未下载并校验固件。'
+	json_get_var phase phase
+	[ "$phase" = ready ] || fail '固件尚未准备好，请先下载并通过校验。'
+	load_board
+	read_release
+	[ "$SHA256" = "$expected" ] || fail '待升级固件已变化，请重新核对并确认。'
+	write_state verifying '正在进行刷写前的最终校验…'
+	verify_image
+	set -- /sbin/sysupgrade
+	if [ "$keep" = 1 ]; then
+		[ "$ALLOW_BACKUP" = 1 ] || fail '此固件不允许保留配置，请取消保留配置后重新下载并确认。'
+		set -- "$@" -k
+	else
+		set -- "$@" -n
+	fi
+	"$@" --test "$IMAGE" >> "$WORK/validation.log" 2>&1 || fail 'sysupgrade 预检查未通过，已停止升级。'
+	write_state flashing '正在刷写固件，请勿断电。设备随后将重启。'
+	# Give LuCI time to receive the accepted response before sysupgrade stops services.
+	sleep 2
+	"$@" "$IMAGE" >> "$WORK/upgrade.log" 2>&1 || fail 'sysupgrade 执行失败，请查看系统日志。'
+	# procd may acknowledge the request before it stops the running system.
+	sleep 180
+	fail '升级请求已发出，但设备仍未重启，请检查系统日志。'
+}
+
+status() {
+	local phase=idle message='点击检查更新以读取最新正式版。' updated=0 backup=0
+	local current_revision='' current_distribution='' current_version='' board='' model='' bytes=0
+	local busy=0 name='' tag='' notes='' published='' asset='' size=0 sha='' source=''
+	local info
+	if [ -s "$STATE" ]; then
+		json_load_file "$STATE" && {
+			json_get_var phase phase
+			json_get_var message message
+			json_get_var updated updated_at
+			json_get_var backup allow_backup
+		}
+	fi
+	job_alive && busy=1
+	case "$phase" in
+		checking|downloading|verifying|flashing)
+			if [ "$busy" = 0 ]; then
+				phase=error
+				message='上次任务已中断，请重新检查更新。'
+			fi
+			;;
+	esac
+	if [ -s "$RELEASE" ]; then
+		json_load_file "$RELEASE" && {
+			json_get_var name name
+			json_get_var tag tag
+			json_get_var notes notes
+			json_get_var published published_at
+			json_get_var asset asset_name
+			json_get_var size asset_size
+			json_get_var sha sha256
+			json_get_var source source_revision
+		}
+	fi
+	[ ! -f "$IMAGE.part" ] || bytes=$(wc -c < "$IMAGE.part" | tr -d ' ')
+	[ ! -f "$IMAGE" ] || bytes=$(wc -c < "$IMAGE" | tr -d ' ')
+	info=$(ubus call system board 2>/dev/null)
+	if json_load "$info"; then
+		json_get_var board board_name
+		json_get_var model model
+		if json_select release; then
+			json_get_var current_revision revision
+			json_get_var current_version version
+			json_get_var current_distribution distribution
+		fi
+	fi
+	json_init
+	json_add_string phase "$phase"
+	json_add_string message "$message"
+	json_add_int updated_at "${updated:-0}"
+	json_add_boolean busy "$busy"
+	json_add_boolean allow_backup "${backup:-0}"
+	json_add_string repository "$REPOSITORY"
+	json_add_string board "$board"
+	json_add_string model "$model"
+	json_add_string current_revision "$current_revision"
+	json_add_string current_version "$current_version"
+	json_add_string current_distribution "$current_distribution"
+	json_add_string name "$name"
+	json_add_string tag "$tag"
+	json_add_string notes "$notes"
+	json_add_string published_at "$published"
+	json_add_string asset_name "$asset"
+	json_add_int asset_size "${size:-0}"
+	json_add_int downloaded "${bytes:-0}"
+	json_add_string sha256 "$sha"
+	json_add_string source_revision "$source"
+	json_dump
+}
+
+start_job() {
+	local action=$1 keep=${2:-1} expected=${3:-} pid phase cached_hash
+	acquire_lock
+	case "$action" in
+		check) write_state checking '正在连接 GitHub…' ;;
+		download) write_state downloading '正在准备下载…' ;;
+		upgrade)
+			json_load_file "$STATE" || reply_error '请先下载固件。'
+			json_get_var phase phase
+			[ "$phase" = ready ] || reply_error '请先下载并通过校验。'
+			json_load_file "$RELEASE" || reply_error '缺少发布信息。'
+			json_get_var cached_hash sha256
+			[ "$cached_hash" = "$expected" ] || reply_error '待升级固件已变化，请刷新页面重新确认。'
+			;;
+	esac
+	(trap '' HUP; exec "$SELF" worker "$action" "$keep" "$expected") </dev/null >> "$WORK/worker.log" 2>&1 &
+	pid=$!
+	printf '%s\n' "$pid" > "$LOCK/pid"
+	OWN_LOCK=0
+	json_init
+	json_add_boolean accepted 1
+	json_dump
+}
+
+case "$1" in
+	status) status ;;
+	check|download) [ "$#" = 1 ] || reply_error '参数无效。'; start_job "$1" ;;
+	upgrade)
+		[ "$#" = 3 ] || reply_error '必须指定保留配置选项和固件 SHA256。'
+		valid_hash "$3" || reply_error '固件 SHA256 参数无效。'
+		case "$2" in 0|1) start_job upgrade "$2" "$3" ;; *) reply_error '参数无效。' ;; esac
+		;;
+	clean)
+		acquire_lock
+		rm -f "$IMAGE" "$IMAGE.part" "$RELEASE" "$WORK/github.json" "$WORK/sha256sums"
+		write_state idle '缓存已清理，可以重新检查更新。'
+		release_lock
+		status
+		;;
+	worker)
+		for attempt in 1 2 3; do
+			read -r owner < "$LOCK/pid" 2>/dev/null
+			[ "$owner" = "$$" ] && break
+			[ "$attempt" = 3 ] || sleep 1
+		done
+		[ "$owner" = "$$" ] || exit 1
+		OWN_LOCK=1
+		trap release_lock EXIT
+		trap 'write_state error "任务被中断，请重试。"; exit 1' HUP INT TERM
+		case "$2" in
+			check) check_release ;;
+			download) download_image ;;
+			upgrade) case "$3" in 0|1) upgrade_image "$3" "$4" ;; *) fail '参数无效。' ;; esac ;;
+			*) reply_error '无效的后台任务。' ;;
+		esac
+		;;
+	*) reply_error '用法：xwrt-ota status|check|download|clean 或 upgrade <0|1> <SHA256>' ;;
+esac

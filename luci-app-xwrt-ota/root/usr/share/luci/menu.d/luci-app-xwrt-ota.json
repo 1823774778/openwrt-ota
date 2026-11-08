@@ -1,0 +1,13 @@
+{
+  "admin/system/xwrt-ota": {
+    "title": "XWRT 在线更新",
+    "order": 75,
+    "action": {
+      "type": "view",
+      "path": "system/xwrt-ota"
+    },
+    "depends": {
+      "acl": ["luci-app-xwrt-ota"]
+    }
+  }
+}

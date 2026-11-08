@@ -1,0 +1,25 @@
+{
+  "luci-app-xwrt-ota": {
+    "description": "XWRT release-based firmware updates",
+    "read": {
+      "ubus": {
+        "file": ["exec"]
+      },
+      "file": {
+        "/usr/libexec/xwrt-ota status": ["exec"]
+      }
+    },
+    "write": {
+      "ubus": {
+        "file": ["exec"]
+      },
+      "file": {
+        "/usr/libexec/xwrt-ota check": ["exec"],
+        "/usr/libexec/xwrt-ota download": ["exec"],
+        "/usr/libexec/xwrt-ota clean": ["exec"],
+        "/usr/libexec/xwrt-ota upgrade 0 *": ["exec"],
+        "/usr/libexec/xwrt-ota upgrade 1 *": ["exec"]
+      }
+    }
+  }
+}

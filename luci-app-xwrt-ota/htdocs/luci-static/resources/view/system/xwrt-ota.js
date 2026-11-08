@@ -10,7 +10,9 @@ const isReadonly = !L.hasViewPermission();
 const phases = {
   idle: '尚未检查',
   checking: '检查更新',
-  available: '发现固件',
+  current: '当前为最新版本',
+  version_unknown: '无法判断版本',
+  available: '发现新版本',
   downloading: '下载中',
   verifying: '校验中',
   ready: '可以升级',
@@ -40,7 +42,18 @@ const sizeLabel = function sizeLabel(bytes) {
 };
 
 return view.extend({
-  load() {
+  async load() {
+    const data = await runHelper(['status']);
+    if (isReadonly || data.busy) return data;
+
+    try {
+      await runHelper(['check']);
+    } catch (error) {
+      const current = await runHelper(['status']);
+      if (!current.busy) this.initialError = error;
+      return current;
+    }
+
     return runHelper(['status']);
   },
 
@@ -50,31 +63,82 @@ return view.extend({
 
   async refresh() {
     try {
-      this.update(await runHelper(['status']));
+      const data = await runHelper(['status']);
+      this.connectionFailed = false;
+      this.update(data);
     } catch (error) {
+      this.connectionFailed = true;
       this.statusNode.textContent = '无法连接更新服务，正在等待重连…';
-      this.downloadButton.disabled = true;
-      this.upgradeButton.disabled = true;
+      this.actionButton.disabled = true;
+      this.cleanButton.disabled = true;
     }
   },
 
   async start(action) {
-    this.setBusy(true);
+    if (isReadonly || this.pendingAction || this.data?.busy) return;
+    if (action === 'download' && (this.data?.phase !== 'available' || !this.data.has_update)) return;
+    this.pendingAction = action;
+    this.updateButtons();
 
     try {
       await runHelper([action]);
-      await this.refresh();
+      if (action === 'clean') await runHelper(['check']);
     } catch (error) {
       this.reportError(error);
+    } finally {
       await this.refresh();
+      this.pendingAction = null;
+      this.updateButtons();
     }
   },
 
-  setBusy(busy) {
-    this.checkButton.disabled = isReadonly || busy;
-    this.cleanButton.disabled = isReadonly || busy;
-    this.downloadButton.disabled = isReadonly || busy || !this.data?.asset_name;
-    this.upgradeButton.disabled = isReadonly || busy || this.data?.phase !== 'ready';
+  handleAction() {
+    if (this.pendingAction || this.data?.busy || isReadonly || this.connectionFailed) return;
+    if (this.data?.phase === 'ready' && this.data.download_ready) {
+      this.confirmUpgrade();
+    } else if (this.data?.phase === 'available' && this.data.has_update) {
+      return this.start('download');
+    } else if (['idle', 'error'].includes(this.data?.phase)) {
+      return this.start('check');
+    }
+  },
+
+  updateButtons() {
+    const data = this.data || {};
+    const busy = Boolean(data.busy || this.pendingAction);
+    const labels = {
+      checking: '检查中…',
+      downloading: '下载中…',
+      verifying: '校验中…',
+      flashing: '安装中…',
+    };
+    let label = '暂无更新';
+    let actionable = false;
+    let style = 'btn';
+
+    if (busy) {
+      const pendingLabels = { check: '检查中…', clean: '清理中…', download: '下载中…', upgrade: '校验中…' };
+      label = labels[data.phase] || pendingLabels[this.pendingAction] || '处理中…';
+    } else if (data.phase === 'ready' && data.download_ready) {
+      label = '安装更新';
+      actionable = true;
+      style = 'btn cbi-button-negative';
+    } else if (data.phase === 'available' && data.has_update) {
+      label = '下载版本';
+      actionable = true;
+      style = 'btn cbi-button-positive';
+    } else if (data.phase === 'version_unknown') {
+      label = '无法判断版本';
+    } else if (['idle', 'error'].includes(data.phase)) {
+      label = '重新检查';
+      actionable = true;
+      style = 'btn cbi-button-action';
+    }
+
+    this.actionButton.textContent = label;
+    this.actionButton.className = style;
+    this.actionButton.disabled = isReadonly || busy || !actionable || this.connectionFailed;
+    this.cleanButton.disabled = isReadonly || busy || this.connectionFailed;
   },
 
   update(data) {
@@ -82,12 +146,14 @@ return view.extend({
     this.statusNode.textContent = `${phases[data.phase] || data.phase} · ${data.message}`;
     this.statusNode.className = data.phase === 'error' ? 'alert-message danger' : 'alert-message';
     this.fields.model.textContent = data.model || data.board || '未知设备';
-    this.fields.current.textContent = [
+    this.fields.current.textContent = data.current_description || [
       data.current_distribution,
       data.current_version,
       data.current_revision,
     ].filter(Boolean).join(' ') || '无法读取';
-    this.fields.latest.textContent = data.name || '点击「检查更新」读取';
+    this.fields.currentTime.textContent = data.current_build_time || '无法读取完整构建时间';
+    this.fields.latestTime.textContent = data.latest_build_time || '等待检查';
+    this.fields.latest.textContent = data.name || '正在自动检查…';
     this.fields.tag.textContent = data.tag || '—';
     this.fields.published.textContent = data.published_at
       ? new Date(data.published_at).toLocaleString('zh-CN', { hour12: false })
@@ -106,11 +172,16 @@ return view.extend({
       ? ''
       : 'none';
 
-    const sourceVersion = (data.source_revision || '').replace(/^snapshot-/, '');
-    this.versionHint.textContent = sourceVersion && sourceVersion === data.current_revision
-      ? '当前系统与该 Release 的源码版本相同；同一源码可能被重新构建，请核对发布日期和发布说明。'
-      : '版本信息来自设备与 GitHub Release；请核对发布说明后确认升级。';
-    this.setBusy(Boolean(data.busy));
+    if (data.version_status === 'current') {
+      this.versionHint.textContent = '当前为最新版本，暂无更新。';
+    } else if (data.download_ready) {
+      this.versionHint.textContent = '已下载完成，可更新。切换页面会保留安装包，无需重复下载。';
+    } else if (data.version_status === 'update') {
+      this.versionHint.textContent = '发现更新的固件构建时间，可下载新版本。';
+    } else {
+      this.versionHint.textContent = '读取与“状态 → 概览”相同的固件构建时间，精确比较到秒；缺少完整时间时无法自动判断版本。';
+    }
+    this.updateButtons();
 
     if (data.phase === 'flashing' && !this.reconnecting) {
       this.reconnecting = true;
@@ -123,7 +194,7 @@ return view.extend({
 
   confirmUpgrade() {
     const data = this.data;
-    if (!data || data.phase !== 'ready' || data.busy || isReadonly) return;
+    if (!data || data.phase !== 'ready' || !data.download_ready || data.busy || this.pendingAction || isReadonly) return;
 
     const keep = E('input', {
       type: 'checkbox',
@@ -135,17 +206,21 @@ return view.extend({
       class: 'btn cbi-button-negative important',
       disabled: true,
       click: ui.createHandlerFn(this, async function submitUpgrade() {
+        if (!acknowledge.checked || this.pendingAction || this.data?.busy) return;
         submit.disabled = true;
-        this.setBusy(true);
+        this.pendingAction = 'upgrade';
+        this.updateButtons();
 
         try {
           await runHelper(['upgrade', keep.checked ? '1' : '0', data.sha256]);
           ui.hideModal();
-          await this.refresh();
         } catch (error) {
           ui.hideModal();
           this.reportError(error);
+        } finally {
           await this.refresh();
+          this.pendingAction = null;
+          this.updateButtons();
         }
       }),
     }, '确认升级');
@@ -191,18 +266,11 @@ return view.extend({
     this.progressNode = E('progress', { max: 100, value: 0, style: 'width:100%', 'aria-label': '固件下载进度' });
     this.progressLabel = E('p');
     this.progressWrap = E('div', {}, [this.progressNode, this.progressLabel]);
-    this.checkButton = E('button', {
-      class: 'btn cbi-button-action',
-      click: ui.createHandlerFn(this, 'start', 'check'),
-    }, '检查更新');
-    this.downloadButton = E('button', {
-      class: 'btn cbi-button-positive',
-      click: ui.createHandlerFn(this, 'start', 'download'),
-    }, '下载并校验');
-    this.upgradeButton = E('button', {
-      class: 'btn cbi-button-negative',
-      click: ui.createHandlerFn(this, 'confirmUpgrade'),
-    }, '安装更新');
+    this.actionButton = E('button', {
+      class: 'btn',
+      disabled: true,
+      click: ui.createHandlerFn(this, 'handleAction'),
+    }, '暂无更新');
     this.cleanButton = E('button', {
       class: 'btn',
       click: ui.createHandlerFn(this, 'start', 'clean'),
@@ -218,8 +286,10 @@ return view.extend({
       this.statusNode,
       E('div', { class: 'cbi-section' }, [
         row('model', '当前设备'),
-        row('current', '当前系统'),
+        row('current', '当前固件版本'),
+        row('currentTime', '当前构建时间'),
         row('latest', '最新发布'),
+        row('latestTime', '新版构建时间'),
         row('tag', 'Release 标签'),
         row('published', '发布时间'),
         row('asset', '匹配固件'),
@@ -229,14 +299,12 @@ return view.extend({
       this.versionHint,
       this.progressWrap,
       E('div', { class: 'cbi-page-actions', style: 'display:flex;flex-wrap:wrap;gap:8px' }, [
-        this.checkButton,
-        this.downloadButton,
-        this.upgradeButton,
         this.cleanButton,
+        this.actionButton,
       ]),
       E('p', {}, [
         E('a', { href: L.url('admin/system/flash') }, '升级前先备份系统配置'),
-        '。保留配置不等于保留额外安装的软件包。',
+        '。保留配置不等于保留额外安装的软件包。切换页面会保留已下载固件，主动清理或路由器重启后缓存失效。',
       ]),
       E('div', { class: 'cbi-section' }, [
         E('h3', {}, '发布说明'),
@@ -245,6 +313,10 @@ return view.extend({
     ]);
 
     this.update(data);
+    if (this.initialError) {
+      this.reportError(this.initialError);
+      this.initialError = null;
+    }
     poll.add(() => this.refresh(), 2);
     return page;
   },

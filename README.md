@@ -46,7 +46,9 @@ rm -f /tmp/luci-indexcache* /tmp/luci-modulecache/*
 
 ## 源码和构建
 
-GitHub Actions 的 **Build APK** 工作流会在插件改动合并到 `main` 后自动构建，也可在 Actions 页面通过 **Run workflow** 手动运行。构建完成后，在该次运行的 **Artifacts → luci-app-xwrt-ota-apk** 下载 ZIP，解压得到 APK 和 `sha256sums`。工作流固定官方 apk-tools 版本并核对源码 SHA256，构建产物保留 30 天。
+GitHub Actions 的 **Build APK** 工作流会在插件改动合并到 `main` 后自动构建，也可在 Actions 页面通过 **Run workflow** 手动运行。`main` 分支构建及校验成功后自动创建 Release，仅上传 `.apk` 附件；Release 正文包含插件作用、适配设备、安装使用方法、版本、源码提交和 SHA256。可直接到 [Releases](https://github.com/1823774778/openwrt-ota/releases/latest) 下载安装包。PR 和其他分支不会发布 Release，GitHub 自动生成的 Source code 归档不属于工作流上传的附件。
+
+每次发布使用包含插件版本、构建编号和运行次数的独立标签。构建记录的 **Artifacts → luci-app-xwrt-ota-apk** 仍保留 APK 和 `sha256sums`，有效期 30 天。工作流固定官方 apk-tools 版本并核对源码 SHA256。
 
 - `luci-app-xwrt-ota/`：标准 LuCI 软件包目录，含视图、后端、菜单和 ACL。
 - `scripts/build-apk.py`：使用官方 `apk-tools 3.x` 的 `mkpkg` 生成独立安装包，不需要编译内核。

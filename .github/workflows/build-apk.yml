@@ -55,7 +55,7 @@ jobs:
           curl --fail --location --silent --show-error \
             --proto '=https' --proto-redir '=https' \
             --connect-timeout 20 --max-time 180 \
-            "https://gitlab.alpinelinux.org/alpine/apk-tools/-/archive/$APK_TOOLS_COMMIT/apk-tools-$APK_TOOLS_COMMIT.tar.gz" \
+            "https://codeload.github.com/alpinelinux/apk-tools/tar.gz/$APK_TOOLS_COMMIT" \
             --output "$tools/source.tar.gz"
           printf '%s  %s\n' "$APK_TOOLS_SHA256" "$tools/source.tar.gz" | sha256sum -c -
           tar -xzf "$tools/source.tar.gz" -C "$tools"

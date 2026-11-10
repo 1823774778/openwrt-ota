@@ -188,22 +188,31 @@ const styles = `
 }
 
 .xwrt-ota-facts {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.xwrt-ota-fact {
-  min-width: 0;
-  padding: 15px 16px;
-  border-radius: var(--xwrt-radius);
+  display: flex;
+  flex-direction: column;
+  padding: 4px 18px;
   border: 1px solid var(--xwrt-line);
+  border-radius: var(--xwrt-radius);
   background: var(--xwrt-surface);
   box-shadow: var(--xwrt-shadow);
 }
 
+.xwrt-ota-fact {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  min-width: 0;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--xwrt-line);
+}
+
+.xwrt-ota-fact:last-child {
+  border-bottom: 0;
+}
+
 .xwrt-ota-fact-label {
-  margin-bottom: 7px;
+  margin: 0;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -405,12 +414,20 @@ const styles = `
 }
 
 @media (max-width: 720px) {
-  .xwrt-ota-facts {
-    grid-template-columns: 1fr;
-  }
-
   .xwrt-ota-hero {
     padding: 18px;
+  }
+}
+
+@media (max-width: 560px) {
+  .xwrt-ota-facts {
+    padding: 2px 14px;
+  }
+
+  .xwrt-ota-fact {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 12px 0;
   }
 }
 

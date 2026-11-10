@@ -62,7 +62,7 @@ jobs:
           mkdir -p "$OUTPUT_DIR"
           python3 scripts/build-apk.py \
             --apk "$RUNNER_TEMP/apk-tools/build/src/apk" \
-            --output "$OUTPUT_DIR/luci-app-xwrt-ota-1.2.0-r1.apk"
+            --output "$OUTPUT_DIR/luci-app-xwrt-ota-1.2.1-r1.apk"
 
       - name: Verify package payload and generate checksums
         run: |
@@ -70,11 +70,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/apk-payload"
           "$RUNNER_TEMP/apk-tools/build/src/apk" extract --allow-untrusted \
             --destination "$RUNNER_TEMP/apk-payload" \
-            "$OUTPUT_DIR/luci-app-xwrt-ota-1.2.0-r1.apk"
+            "$OUTPUT_DIR/luci-app-xwrt-ota-1.2.1-r1.apk"
           test -x "$RUNNER_TEMP/apk-payload/usr/libexec/xwrt-ota"
           cmp luci-app-xwrt-ota/root/usr/libexec/xwrt-ota "$RUNNER_TEMP/apk-payload/usr/libexec/xwrt-ota"
           cmp luci-app-xwrt-ota/htdocs/luci-static/resources/view/system/xwrt-ota.js "$RUNNER_TEMP/apk-payload/www/luci-static/resources/view/system/xwrt-ota.js"
-          python3 -c 'import hashlib, os; from pathlib import Path; output=Path(os.environ["OUTPUT_DIR"]); package=output/"luci-app-xwrt-ota-1.2.0-r1.apk"; (output/"sha256sums").write_text(hashlib.sha256(package.read_bytes()).hexdigest()+"  "+package.name+"\n")'
+          python3 -c 'import hashlib, os; from pathlib import Path; output=Path(os.environ["OUTPUT_DIR"]); package=output/"luci-app-xwrt-ota-1.2.1-r1.apk"; (output/"sha256sums").write_text(hashlib.sha256(package.read_bytes()).hexdigest()+"  "+package.name+"\n")'
 
       - name: Upload installable APK
         uses: actions/upload-artifact@v4

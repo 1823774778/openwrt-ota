@@ -5,7 +5,6 @@
 'require poll';
 
 const helper = '/usr/libexec/xwrt-ota';
-const repositoryUrl = 'https://github.com/1823774778/XWRT';
 const isReadonly = !L.hasViewPermission();
 const phases = {
   idle: '尚未检查',
@@ -19,6 +18,410 @@ const phases = {
   flashing: '正在刷写',
   error: '任务失败',
 };
+
+const statusPills = {
+  idle: ['尚未检查', 'neutral'],
+  checking: ['正在检查', 'neutral'],
+  current: ['已是最新', 'success'],
+  available: ['有新版本', 'primary'],
+  downloading: ['下载中', 'info'],
+  verifying: ['校验中', 'info'],
+  ready: ['待安装', 'success'],
+  flashing: ['刷写中', 'warning'],
+  version_unknown: ['无法判断', 'warning'],
+  error: ['出错', 'danger'],
+};
+
+const progressCopy = {
+  downloading: ['正在下载固件', '下载中，请保持设备供电'],
+  verifying: ['正在校验固件', '正在核对 SHA256 与设备兼容性'],
+  ready: ['固件已就绪', '安装包已通过校验，可以安装'],
+  flashing: ['正在写入固件', '请勿断电，设备即将重启'],
+};
+
+const styles = `
+.xwrt-ota {
+  --xwrt-primary: var(--primary, #5e72e4);
+  --xwrt-primary-2: var(--info, #11cdef);
+  --xwrt-success: var(--success, #2dce89);
+  --xwrt-warning: var(--warning, #fb6340);
+  --xwrt-danger: var(--danger, #f5365c);
+  --xwrt-surface: var(--surface-color, #fff);
+  --xwrt-panel: var(--surface-muted, #f6f9fc);
+  --xwrt-line: var(--border-muted, #e9ecef);
+  --xwrt-text: var(--text-strong, #32325d);
+  --xwrt-muted: var(--muted-text, #626f80);
+  --xwrt-radius: var(--radius-card, 0.75rem);
+  --xwrt-shadow: var(--section-shadow, 0 0 1rem rgba(136, 152, 170, 0.15));
+  --xwrt-ring: var(--accent-shadow-color, rgba(94, 114, 228, 0.18));
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  color: var(--xwrt-text);
+}
+
+.xwrt-ota-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 22px 24px;
+  border-radius: var(--xwrt-radius);
+  color: #fff;
+  background:
+    radial-gradient(130% 160% at 100% 0%, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0) 58%),
+    linear-gradient(135deg, var(--xwrt-primary) 0%, var(--xwrt-primary-2) 135%);
+  box-shadow: 0 14px 30px -14px var(--xwrt-ring);
+}
+
+.xwrt-ota-hero-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.xwrt-ota-hero-icon {
+  flex: none;
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+}
+
+.xwrt-ota-hero-glyph {
+  position: absolute;
+  inset: 0;
+}
+
+.xwrt-ota-hero-glyph::before {
+  content: '';
+  position: absolute;
+  left: 21px;
+  top: 11px;
+  width: 4px;
+  height: 14px;
+  border-radius: 2px;
+  background: #fff;
+}
+
+.xwrt-ota-hero-glyph::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  top: 18px;
+  width: 11px;
+  height: 11px;
+  border-right: 4px solid #fff;
+  border-bottom: 4px solid #fff;
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+
+.xwrt-ota-hero-title {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 20px;
+  line-height: 1.3;
+  color: #fff;
+}
+
+.xwrt-ota-hero-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.xwrt-ota-pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill, 999px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.xwrt-ota-pill::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.xwrt-ota-pill-success::before { background: #6ef3b0; }
+.xwrt-ota-pill-primary::before { background: #fff; }
+.xwrt-ota-pill-info::before { background: #9be7ff; }
+.xwrt-ota-pill-warning::before { background: #ffd166; }
+.xwrt-ota-pill-danger::before { background: #ff9aa8; }
+
+.xwrt-ota-status {
+  margin: 0;
+  padding: 11px 14px;
+  border-radius: var(--radius-control, 0.375rem);
+  border: 1px solid var(--xwrt-line);
+  background: var(--xwrt-panel);
+  color: var(--xwrt-muted);
+  font-size: 13.5px;
+}
+
+.xwrt-ota-status.is-error {
+  border-color: rgba(245, 54, 92, 0.35);
+  background: rgba(245, 54, 92, 0.08);
+  color: var(--xwrt-danger);
+}
+
+.xwrt-ota-facts {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.xwrt-ota-fact {
+  min-width: 0;
+  padding: 15px 16px;
+  border-radius: var(--xwrt-radius);
+  border: 1px solid var(--xwrt-line);
+  background: var(--xwrt-surface);
+  box-shadow: var(--xwrt-shadow);
+}
+
+.xwrt-ota-fact-label {
+  margin-bottom: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--xwrt-muted);
+}
+
+.xwrt-ota-fact-value {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--xwrt-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.xwrt-ota-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--xwrt-muted);
+}
+
+.xwrt-ota-progress-card {
+  padding: 16px 18px;
+  border-radius: var(--xwrt-radius);
+  border: 1px solid var(--xwrt-line);
+  background: var(--xwrt-surface);
+  box-shadow: var(--xwrt-shadow);
+}
+
+.xwrt-ota-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.xwrt-ota-progress-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--xwrt-text);
+}
+
+.xwrt-ota-progress-percent {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--xwrt-primary);
+}
+
+.xwrt-ota-progress-track {
+  position: relative;
+  height: 14px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--progress-bg, #e9ecef);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.xwrt-ota-progress-fill {
+  position: relative;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background-image: linear-gradient(90deg, var(--xwrt-primary), var(--xwrt-primary-2));
+  background-size: 220% 100%;
+  transition: width 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.xwrt-ota-progress-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0.28) 0 12px,
+    rgba(255, 255, 255, 0) 12px 24px
+  );
+  opacity: 0;
+}
+
+.xwrt-ota-progress.is-active .xwrt-ota-progress-fill {
+  animation: xwrt-ota-flow 2.4s linear infinite;
+}
+
+.xwrt-ota-progress.is-active .xwrt-ota-progress-fill::after {
+  opacity: 1;
+  animation: xwrt-ota-stripes 1s linear infinite;
+}
+
+.xwrt-ota-progress.is-complete .xwrt-ota-progress-fill {
+  background-image: linear-gradient(90deg, var(--xwrt-success), var(--xwrt-primary-2));
+  animation: none;
+}
+
+.xwrt-ota-progress.is-complete .xwrt-ota-progress-fill::after {
+  opacity: 0;
+}
+
+.xwrt-ota-progress.is-indeterminate .xwrt-ota-progress-fill {
+  width: 38% !important;
+  animation: xwrt-ota-indeterminate 1.5s ease-in-out infinite;
+}
+
+.xwrt-ota-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 9px;
+  font-size: 12.5px;
+  color: var(--xwrt-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.xwrt-ota-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.xwrt-ota-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill, 999px);
+  padding: 11px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+}
+
+.xwrt-ota-btn:focus-visible {
+  outline: 2px solid var(--xwrt-primary);
+  outline-offset: 2px;
+}
+
+.xwrt-ota-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  box-shadow: none;
+  transform: none;
+}
+
+.xwrt-ota-btn-primary {
+  color: #fff;
+  background-image: linear-gradient(135deg, var(--xwrt-primary), var(--xwrt-primary-2));
+  box-shadow: 0 10px 20px -10px var(--xwrt-ring);
+}
+
+.xwrt-ota-btn-danger {
+  color: #fff;
+  background-image: linear-gradient(135deg, var(--xwrt-warning), var(--xwrt-danger));
+  box-shadow: 0 10px 20px -10px rgba(245, 54, 92, 0.4);
+}
+
+.xwrt-ota-btn-ghost {
+  color: var(--xwrt-text);
+  background: var(--xwrt-surface);
+  border-color: var(--xwrt-line);
+}
+
+.xwrt-ota-btn-primary:not(:disabled):hover,
+.xwrt-ota-btn-danger:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.xwrt-ota-btn-ghost:not(:disabled):hover {
+  background: var(--surface-active, #e4e9ee);
+}
+
+.xwrt-ota-note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--xwrt-muted);
+}
+
+.xwrt-ota-note a {
+  color: var(--link-color, var(--xwrt-primary));
+}
+
+@keyframes xwrt-ota-flow {
+  from { background-position: 0% 0; }
+  to { background-position: 220% 0; }
+}
+
+@keyframes xwrt-ota-stripes {
+  from { background-position: 0 0; }
+  to { background-position: 24px 0; }
+}
+
+@keyframes xwrt-ota-indeterminate {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(320%); }
+}
+
+@media (max-width: 720px) {
+  .xwrt-ota-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .xwrt-ota-hero {
+    padding: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xwrt-ota-progress.is-active .xwrt-ota-progress-fill,
+  .xwrt-ota-progress.is-active .xwrt-ota-progress-fill::after,
+  .xwrt-ota-progress.is-indeterminate .xwrt-ota-progress-fill {
+    animation: none;
+  }
+}
+`;
 
 const runHelper = async function runHelper(args) {
   const result = await fs.exec(helper, args);
@@ -114,7 +517,7 @@ return view.extend({
     };
     let label = '暂无更新';
     let actionable = false;
-    let style = 'btn';
+    let variant = 'ghost';
 
     if (busy) {
       const pendingLabels = { check: '检查中…', clean: '清理中…', download: '下载中…', upgrade: '校验中…' };
@@ -122,65 +525,80 @@ return view.extend({
     } else if (data.phase === 'ready' && data.download_ready) {
       label = '安装更新';
       actionable = true;
-      style = 'btn cbi-button-negative';
+      variant = 'danger';
     } else if (data.phase === 'available' && data.has_update) {
       label = '下载版本';
       actionable = true;
-      style = 'btn cbi-button-positive';
+      variant = 'primary';
     } else if (data.phase === 'version_unknown') {
       label = '无法判断版本';
     } else if (['idle', 'error'].includes(data.phase)) {
       label = '重新检查';
       actionable = true;
-      style = 'btn cbi-button-action';
+      variant = 'primary';
     }
 
     this.actionButton.textContent = label;
-    this.actionButton.className = style;
+    this.actionButton.className = `xwrt-ota-btn xwrt-ota-btn-${variant}`;
     this.actionButton.disabled = isReadonly || busy || !actionable || this.connectionFailed;
     this.cleanButton.disabled = isReadonly || busy || this.connectionFailed;
   },
 
   update(data) {
     this.data = data;
-    this.statusNode.textContent = `${phases[data.phase] || data.phase} · ${data.message}`;
-    this.statusNode.className = data.phase === 'error' ? 'alert-message danger' : 'alert-message';
-    this.fields.model.textContent = data.model || data.board || '未知设备';
-    this.fields.current.textContent = data.current_description || [
+
+    const status = statusPills[data.phase] || [phases[data.phase] || data.phase, 'neutral'];
+    this.statusPill.textContent = status[0];
+    this.statusPill.className = `xwrt-ota-pill xwrt-ota-pill-${status[1]}`;
+    this.statusNode.textContent = data.message;
+    this.statusNode.className = `xwrt-ota-status${data.phase === 'error' ? ' is-error' : ''}`;
+
+    this.facts.model.textContent = data.model || data.board || '未知设备';
+    this.facts.current.textContent = data.current_description || [
       data.current_distribution,
       data.current_version,
       data.current_revision,
     ].filter(Boolean).join(' ') || '无法读取';
-    this.fields.currentTime.textContent = data.current_build_time || '无法读取完整构建时间';
-    this.fields.latestTime.textContent = data.latest_build_time || '等待检查';
-    this.fields.latest.textContent = data.name || '正在自动检查…';
-    this.fields.tag.textContent = data.tag || '—';
-    this.fields.published.textContent = data.published_at
-      ? new Date(data.published_at).toLocaleString('zh-CN', { hour12: false })
-      : '—';
-    this.fields.asset.textContent = data.asset_name || '—';
-    this.fields.size.textContent = sizeLabel(data.asset_size);
-    this.fields.sha256.textContent = data.sha256 || '—';
-    this.notesNode.textContent = data.notes || '检查更新后显示发布说明。';
+    this.facts.latest.textContent = data.name || data.tag || '正在检查…';
 
-    const progress = data.asset_size > 0
-      ? Math.min(100, Math.floor((data.downloaded / data.asset_size) * 100))
-      : 0;
-    this.progressNode.value = progress;
-    this.progressLabel.textContent = `${progress}% · ${sizeLabel(data.downloaded)} / ${sizeLabel(data.asset_size)}`;
-    this.progressWrap.style.display = ['downloading', 'verifying', 'ready', 'flashing'].includes(data.phase)
-      ? ''
-      : 'none';
+    const showProgress = ['downloading', 'verifying', 'ready', 'flashing'].includes(data.phase);
+    this.progressWrap.style.display = showProgress ? '' : 'none';
+
+    if (showProgress) {
+      const copy = progressCopy[data.phase] || progressCopy.downloading;
+      const percent = data.asset_size > 0
+        ? Math.min(100, Math.floor((data.downloaded / data.asset_size) * 100))
+        : 0;
+      const shownPercent = data.phase === 'downloading'
+        ? percent
+        : (data.phase === 'flashing' ? null : 100);
+
+      this.progressTitle.textContent = copy[0];
+      this.progressState.textContent = copy[1];
+      this.progressPercent.textContent = shownPercent === null || data.asset_size <= 0
+        ? '—'
+        : `${shownPercent}%`;
+      this.progressFill.style.width = `${shownPercent === null ? 100 : shownPercent}%`;
+      this.progressBytes.textContent = `${sizeLabel(data.downloaded)} / ${sizeLabel(data.asset_size)}`;
+      if (shownPercent === null) this.progressNode.removeAttribute('aria-valuenow');
+      else this.progressNode.setAttribute('aria-valuenow', String(shownPercent));
+      this.progressNode.classList.toggle('is-active', ['downloading', 'verifying'].includes(data.phase));
+      this.progressNode.classList.toggle('is-complete', data.phase === 'ready');
+      this.progressNode.classList.toggle('is-indeterminate', data.phase === 'flashing');
+    }
 
     if (data.version_status === 'current') {
-      this.versionHint.textContent = '当前为最新版本，暂无更新。';
+      this.versionHint.textContent = '已安装最新正式版固件。';
     } else if (data.download_ready) {
-      this.versionHint.textContent = '已下载完成，可更新。切换页面会保留安装包，无需重复下载。';
+      this.versionHint.textContent = '安装包已下载并通过校验，可直接安装。';
     } else if (data.version_status === 'update') {
-      this.versionHint.textContent = '发现更新的固件构建时间，可下载新版本。';
+      this.versionHint.textContent = '检测到更新的固件构建，可下载新版本。';
+    } else if (data.phase === 'checking' || data.phase === 'idle') {
+      this.versionHint.textContent = '正在读取设备与最新发布版本…';
     } else {
-      this.versionHint.textContent = '读取与“状态 → 概览”相同的固件构建时间，精确比较到秒；缺少完整时间时无法自动判断版本。';
+      this.versionHint.textContent = '固件缺少完整构建时间，无法自动判断版本。';
     }
+
     this.updateButtons();
 
     if (data.phase === 'flashing' && !this.reconnecting) {
@@ -248,67 +666,80 @@ return view.extend({
   },
 
   render(data) {
-    this.fields = {};
-    const row = (key, label) => {
-      this.fields[key] = E('div', {
-        class: 'cbi-value-field',
-        style: 'padding-top:6px;overflow-wrap:anywhere',
-      });
-      return E('div', { class: 'cbi-value' }, [
-        E('label', { class: 'cbi-value-title' }, label),
-        this.fields[key],
+    this.facts = {};
+    const fact = (key, label) => {
+      this.facts[key] = E('div', { class: 'xwrt-ota-fact-value' }, '—');
+      return E('div', { class: 'xwrt-ota-fact' }, [
+        E('div', { class: 'xwrt-ota-fact-label' }, label),
+        this.facts[key],
       ]);
     };
 
-    this.statusNode = E('p', { role: 'status', 'aria-live': 'polite' });
-    this.versionHint = E('p', { class: 'cbi-section-descr' });
-    this.notesNode = E('pre', { style: 'white-space:pre-wrap;overflow-wrap:anywhere;max-height:28rem;overflow:auto' });
-    this.progressNode = E('progress', { max: 100, value: 0, style: 'width:100%', 'aria-label': '固件下载进度' });
-    this.progressLabel = E('p');
-    this.progressWrap = E('div', {}, [this.progressNode, this.progressLabel]);
+    this.statusPill = E('span', { class: 'xwrt-ota-pill xwrt-ota-pill-neutral' }, '尚未检查');
+    this.statusNode = E('p', { class: 'xwrt-ota-status', role: 'status', 'aria-live': 'polite' });
+    this.versionHint = E('p', { class: 'xwrt-ota-hint' });
+
+    this.progressTitle = E('span', { class: 'xwrt-ota-progress-title' }, '正在下载固件');
+    this.progressPercent = E('span', { class: 'xwrt-ota-progress-percent' }, '0%');
+    this.progressFill = E('div', { class: 'xwrt-ota-progress-fill' });
+    this.progressBytes = E('span', {}, '—');
+    this.progressState = E('span', {}, '');
+    this.progressNode = E('div', {
+      class: 'xwrt-ota-progress',
+      role: 'progressbar',
+      'aria-valuemin': '0',
+      'aria-valuemax': '100',
+      'aria-valuenow': '0',
+      'aria-label': '固件下载进度',
+    }, [
+      E('div', { class: 'xwrt-ota-progress-head' }, [this.progressTitle, this.progressPercent]),
+      E('div', { class: 'xwrt-ota-progress-track' }, [this.progressFill]),
+      E('div', { class: 'xwrt-ota-progress-meta' }, [this.progressBytes, this.progressState]),
+    ]);
+    this.progressWrap = E('div', { class: 'xwrt-ota-progress-card' }, [this.progressNode]);
+
     this.actionButton = E('button', {
-      class: 'btn',
+      type: 'button',
+      class: 'xwrt-ota-btn xwrt-ota-btn-ghost',
       disabled: true,
       click: ui.createHandlerFn(this, 'handleAction'),
     }, '暂无更新');
     this.cleanButton = E('button', {
-      class: 'btn',
+      type: 'button',
+      class: 'xwrt-ota-btn xwrt-ota-btn-ghost',
       click: ui.createHandlerFn(this, 'start', 'clean'),
     }, '清理缓存');
 
-    const page = E('div', { class: 'cbi-map' }, [
-      E('h2', {}, 'XWRT 在线更新'),
-      E('div', { class: 'cbi-map-descr' }, [
-        '从 ',
-        E('a', { href: `${repositoryUrl}/releases/latest`, target: '_blank', rel: 'noopener noreferrer' }, 'XWRT GitHub Releases'),
-        ' 获取最新正式版。自动识别雅典娜 / 亚瑟，只下载匹配的 sysupgrade 固件。',
+    const page = E('div', { class: 'xwrt-ota' }, [
+      E('style', {}, styles),
+      E('div', { class: 'xwrt-ota-hero' }, [
+        E('div', { class: 'xwrt-ota-hero-main' }, [
+          E('div', { class: 'xwrt-ota-hero-icon', 'aria-hidden': 'true' }, [
+            E('span', { class: 'xwrt-ota-hero-glyph' }),
+          ]),
+          E('div', {}, [
+            E('h2', { class: 'xwrt-ota-hero-title' }, 'XWRT 在线更新'),
+            E('p', { class: 'xwrt-ota-hero-sub' }, '自动匹配京东云雅典娜 / 亚瑟的 XWRT 正式版固件'),
+          ]),
+        ]),
+        this.statusPill,
       ]),
       this.statusNode,
-      E('div', { class: 'cbi-section' }, [
-        row('model', '当前设备'),
-        row('current', '当前固件版本'),
-        row('currentTime', '当前构建时间'),
-        row('latest', '最新发布'),
-        row('latestTime', '新版构建时间'),
-        row('tag', 'Release 标签'),
-        row('published', '发布时间'),
-        row('asset', '匹配固件'),
-        row('size', '固件大小'),
-        row('sha256', 'SHA256'),
+      E('div', { class: 'xwrt-ota-facts' }, [
+        fact('model', '当前设备'),
+        fact('current', '当前固件版本'),
+        fact('latest', '最新版本'),
       ]),
       this.versionHint,
       this.progressWrap,
-      E('div', { class: 'cbi-page-actions', style: 'display:flex;flex-wrap:wrap;gap:8px' }, [
-        this.cleanButton,
+      E('div', { class: 'xwrt-ota-actions' }, [
         this.actionButton,
+        this.cleanButton,
       ]),
-      E('p', {}, [
-        E('a', { href: L.url('admin/system/flash') }, '升级前先备份系统配置'),
-        '。保留配置不等于保留额外安装的软件包。切换页面会保留已下载固件，主动清理或路由器重启后缓存失效。',
-      ]),
-      E('div', { class: 'cbi-section' }, [
-        E('h3', {}, '发布说明'),
-        this.notesNode,
+      E('p', { class: 'xwrt-ota-note' }, [
+        '升级前请先',
+        E('a', { href: L.url('admin/system/flash') }, '备份系统配置'),
+        '。切换页面会保留已下载固件，主动清理或路由器重启后缓存失效。',
       ]),
     ]);
 

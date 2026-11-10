@@ -169,7 +169,7 @@ fetch() {
 		--proto '=https' --proto-redir '=https' --tlsv1.2 \
 		--connect-timeout 15 --max-time "$timeout" --max-redirs 5 \
 		--max-filesize "$limit" --speed-limit 1024 --speed-time 45 \
-		--user-agent 'luci-app-xwrt-ota/1.1.0' \
+		--user-agent 'luci-app-xwrt-ota/1.2.0' \
 		--header 'Accept: application/vnd.github+json' \
 		--output "$output" "$url" 2> "$WORK/curl-error.log"
 }

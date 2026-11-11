@@ -42,7 +42,7 @@ const progressCopy = {
 const styles = `
 .xwrt-ota {
   --xwrt-primary: var(--v-accent-fill, var(--primary, #5e72e4));
-  --xwrt-primary-2: var(--v-accent-hover, var(--info, #11cdef));
+  --xwrt-primary-2: var(--v-accent-fill-hover, var(--info, #11cdef));
   --xwrt-accent-text: var(--v-accent-text, var(--primary, #5e72e4));
   --xwrt-success: var(--v-ok, var(--success, #2dce89));
   --xwrt-warning: var(--v-warn, var(--warning, #fb6340));
@@ -57,13 +57,28 @@ const styles = `
   --xwrt-ring: var(--v-accent-soft, var(--accent-shadow-color, rgba(94, 114, 228, 0.18)));
   --xwrt-hero-ink: var(--v-accent-fill-ink, #fff);
   --xwrt-hero-a: var(--v-accent-fill, var(--primary, #5e72e4));
-  --xwrt-hero-b: var(--v-accent-hover, var(--info, #11cdef));
+  --xwrt-hero-b: var(--v-accent-fill-hover, var(--info, #11cdef));
+  --xwrt-hero-glow: rgba(255, 255, 255, 0.24);
+  --xwrt-pill-bg: rgba(255, 255, 255, 0.3);
+  --xwrt-pill-line: rgba(255, 255, 255, 0.45);
+  --xwrt-pill-ink: var(--xwrt-hero-ink);
   --xwrt-track: var(--v-surface-3, var(--progress-bg, #e9ecef));
   --xwrt-done-b: var(--v-info, var(--xwrt-primary-2));
   display: flex;
   flex-direction: column;
   gap: var(--v-sp-4, 18px);
   color: var(--xwrt-text);
+}
+
+html[data-darkmode="true"] .xwrt-ota {
+  --xwrt-hero-a: var(--v-surface-2, #1b1d21);
+  --xwrt-hero-b: var(--v-surface-3, #22252a);
+  --xwrt-hero-glow: var(--v-accent-soft, rgba(200, 240, 49, 0.1));
+  --xwrt-hero-ink: var(--v-text, #e8eaed);
+  --xwrt-pill-bg: var(--v-accent-soft, rgba(200, 240, 49, 0.1));
+  --xwrt-pill-line: var(--v-accent-line, rgba(200, 240, 49, 0.5));
+  --xwrt-pill-ink: var(--v-accent-text, #c8f031);
+  --xwrt-ring: rgba(0, 0, 0, 0.45);
 }
 
 .xwrt-ota-hero {
@@ -78,7 +93,7 @@ const styles = `
   border-radius: var(--xwrt-radius);
   color: var(--xwrt-hero-ink);
   background:
-    radial-gradient(130% 160% at 100% 0%, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0) 58%),
+    radial-gradient(130% 160% at 100% 0%, var(--xwrt-hero-glow) 0%, transparent 58%),
     linear-gradient(135deg, var(--xwrt-hero-a) 0%, var(--xwrt-hero-b) 135%);
   box-shadow: 0 14px 30px -14px var(--xwrt-ring);
 }
@@ -88,46 +103,6 @@ const styles = `
   align-items: center;
   gap: 16px;
   min-width: 0;
-}
-
-.xwrt-ota-hero-icon {
-  flex: none;
-  position: relative;
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  color: var(--xwrt-hero-ink);
-}
-
-.xwrt-ota-hero-glyph {
-  position: absolute;
-  inset: 0;
-}
-
-.xwrt-ota-hero-glyph::before {
-  content: '';
-  position: absolute;
-  left: 21px;
-  top: 11px;
-  width: 4px;
-  height: 14px;
-  border-radius: 2px;
-  background: currentColor;
-}
-
-.xwrt-ota-hero-glyph::after {
-  content: '';
-  position: absolute;
-  left: 16px;
-  top: 18px;
-  width: 11px;
-  height: 11px;
-  border-right: 4px solid currentColor;
-  border-bottom: 4px solid currentColor;
-  border-radius: 2px;
-  transform: rotate(45deg);
 }
 
 .xwrt-ota-hero-title {
@@ -156,9 +131,9 @@ const styles = `
   align-items: center;
   padding: 7px 14px;
   border-radius: var(--radius-pill, 999px);
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  background: rgba(255, 255, 255, 0.3);
-  color: var(--xwrt-hero-ink);
+  border: 1px solid var(--xwrt-pill-line);
+  background: var(--xwrt-pill-bg);
+  color: var(--xwrt-pill-ink);
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -681,9 +656,6 @@ return view.extend({
       E('style', {}, styles),
       E('div', { class: 'xwrt-ota-hero' }, [
         E('div', { class: 'xwrt-ota-hero-main' }, [
-          E('div', { class: 'xwrt-ota-hero-icon', 'aria-hidden': 'true' }, [
-            E('span', { class: 'xwrt-ota-hero-glyph' }),
-          ]),
           E('div', {}, [
             E('h2', { class: 'xwrt-ota-hero-title' }, 'XWRT 在线更新'),
             E('p', { class: 'xwrt-ota-hero-sub' }, '自动匹配京东云雅典娜 / 亚瑟的 XWRT 正式版固件'),

@@ -4,10 +4,10 @@
 
 ## 安装
 
-安装包：`luci-app-xwrt-ota-1.2.3-r1.apk`（OpenWrt APK v3，noarch）。将安装包上传到路由器 `/tmp`，通过 SSH 执行：
+安装包：`luci-app-xwrt-ota-1.2.4-r1.apk`（OpenWrt APK v3，noarch）。将安装包上传到路由器 `/tmp`，通过 SSH 执行：
 
 ```sh
-apk add --allow-untrusted /tmp/luci-app-xwrt-ota-1.2.3-r1.apk
+apk add --allow-untrusted /tmp/luci-app-xwrt-ota-1.2.4-r1.apk
 ```
 
 随后退出并重新登录 LuCI，在 **系统 → XWRT 在线更新** 中使用。依赖由 APK 自动处理：`luci-base`、`rpcd-mod-file`、`curl`、`ca-bundle`、`jshn`。设备须能通过 HTTPS 访问 GitHub API 和 Release 下载地址。
@@ -62,6 +62,6 @@ python3 scripts/build-apk.py --apk /path/to/apk
 
 如需以后预装到固件，可将插件目录复制到 OpenWrt 源码的 `package/`，选择 `CONFIG_PACKAGE_luci-app-xwrt-ota=y` 后按固件正常流程编译。
 
-1.2.3 已完成脚本、JavaScript、Python 和 JSON 语法检查，并在加载真实 Vantage 主题样式的隔离页面中验证了浅色 / 深色模式、纵向信息列表、青柠主色按钮、自动检查、同版本置灰、下载进度条、安装确认、无法判断版本和只读权限。后端逻辑与 1.1.0 相同，仅版本号和 User-Agent 变化，沿用此前真实 BusyBox ash + OpenWrt jshn 的 41 项隔离检查（含切页缓存复用，浏览器实测固件下载请求仍为 1 次）。没有为本次修改自动构建 APK，需按上述步骤手动运行工作流。
+1.2.4 移除了顶部横幅中容易被误认为按钮的装饰图标，修正了渐变终点取错 Vantage 变量的问题；深色模式改用深色横幅并只保留青柠强调色，浅色模式仍使用青柠主色横幅。已在加载真实 Vantage 主题样式的隔离页面中验证浅色 / 深色模式、纵向信息列表、自动检查、同版本置灰、下载进度条、安装确认、无法判断版本和只读权限。后端逻辑与 1.1.0 相同，仅版本号和 User-Agent 变化，沿用此前真实 BusyBox ash + OpenWrt jshn 的 41 项隔离检查（含切页缓存复用，浏览器实测固件下载请求仍为 1 次）。没有为本次修改自动构建 APK，需按上述步骤手动运行工作流。
 
 此前版本还完成了 APK 完整性、解包一致性、隔离根安装/卸载及安装脚本执行检查。真实固件的软件包清单包含全部依赖。GitHub 匿名 API 配额耗尽时会报告网络/API 限流错误。没有连接实体路由器执行刷机，设备上的实际安装、闪存写入和重启仍需实机验证。

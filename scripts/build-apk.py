@@ -10,7 +10,7 @@ import tempfile
 
 
 NAME = "luci-app-xwrt-ota"
-VERSION = "1.2.2-r1"
+VERSION = "1.2.3-r1"
 DEPENDENCIES = "luci-base rpcd-mod-file curl ca-bundle jshn"
 
 

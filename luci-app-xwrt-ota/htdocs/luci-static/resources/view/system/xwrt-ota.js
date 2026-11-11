@@ -41,22 +41,28 @@ const progressCopy = {
 
 const styles = `
 .xwrt-ota {
-  --xwrt-primary: var(--primary, #5e72e4);
-  --xwrt-primary-2: var(--info, #11cdef);
-  --xwrt-success: var(--success, #2dce89);
-  --xwrt-warning: var(--warning, #fb6340);
-  --xwrt-danger: var(--danger, #f5365c);
-  --xwrt-surface: var(--surface-color, #fff);
-  --xwrt-panel: var(--surface-muted, #f6f9fc);
-  --xwrt-line: var(--border-muted, #e9ecef);
-  --xwrt-text: var(--text-strong, #32325d);
-  --xwrt-muted: var(--muted-text, #626f80);
-  --xwrt-radius: var(--radius-card, 0.75rem);
-  --xwrt-shadow: var(--section-shadow, 0 0 1rem rgba(136, 152, 170, 0.15));
-  --xwrt-ring: var(--accent-shadow-color, rgba(94, 114, 228, 0.18));
+  --xwrt-primary: var(--v-accent-fill, var(--primary, #5e72e4));
+  --xwrt-primary-2: var(--v-accent-hover, var(--info, #11cdef));
+  --xwrt-accent-text: var(--v-accent-text, var(--primary, #5e72e4));
+  --xwrt-success: var(--v-ok, var(--success, #2dce89));
+  --xwrt-warning: var(--v-warn, var(--warning, #fb6340));
+  --xwrt-danger: var(--v-err, var(--danger, #f5365c));
+  --xwrt-surface: var(--v-surface, var(--surface-color, #fff));
+  --xwrt-panel: var(--v-surface-3, var(--surface-muted, #f6f9fc));
+  --xwrt-line: var(--v-line, var(--border-muted, #e9ecef));
+  --xwrt-text: var(--v-text, var(--text-strong, #32325d));
+  --xwrt-muted: var(--v-text-2, var(--muted-text, #626f80));
+  --xwrt-radius: var(--v-r-lg, var(--radius-card, 0.75rem));
+  --xwrt-shadow: var(--v-shadow, var(--section-shadow, 0 0 1rem rgba(136, 152, 170, 0.15)));
+  --xwrt-ring: var(--v-accent-soft, var(--accent-shadow-color, rgba(94, 114, 228, 0.18)));
+  --xwrt-hero-ink: var(--v-accent-fill-ink, #fff);
+  --xwrt-hero-a: var(--v-accent-fill, var(--primary, #5e72e4));
+  --xwrt-hero-b: var(--v-accent-hover, var(--info, #11cdef));
+  --xwrt-track: var(--v-surface-3, var(--progress-bg, #e9ecef));
+  --xwrt-done-b: var(--v-info, var(--xwrt-primary-2));
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--v-sp-4, 18px);
   color: var(--xwrt-text);
 }
 
@@ -70,10 +76,10 @@ const styles = `
   flex-wrap: wrap;
   padding: 22px 24px;
   border-radius: var(--xwrt-radius);
-  color: #fff;
+  color: var(--xwrt-hero-ink);
   background:
     radial-gradient(130% 160% at 100% 0%, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0) 58%),
-    linear-gradient(135deg, var(--xwrt-primary) 0%, var(--xwrt-primary-2) 135%);
+    linear-gradient(135deg, var(--xwrt-hero-a) 0%, var(--xwrt-hero-b) 135%);
   box-shadow: 0 14px 30px -14px var(--xwrt-ring);
 }
 
@@ -90,8 +96,9 @@ const styles = `
   width: 46px;
   height: 46px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: var(--xwrt-hero-ink);
 }
 
 .xwrt-ota-hero-glyph {
@@ -107,7 +114,7 @@ const styles = `
   width: 4px;
   height: 14px;
   border-radius: 2px;
-  background: #fff;
+  background: currentColor;
 }
 
 .xwrt-ota-hero-glyph::after {
@@ -117,8 +124,8 @@ const styles = `
   top: 18px;
   width: 11px;
   height: 11px;
-  border-right: 4px solid #fff;
-  border-bottom: 4px solid #fff;
+  border-right: 4px solid currentColor;
+  border-bottom: 4px solid currentColor;
   border-radius: 2px;
   transform: rotate(45deg);
 }
@@ -132,14 +139,15 @@ const styles = `
   box-shadow: none;
   font-size: 20px;
   line-height: 1.3;
-  color: #fff;
+  color: var(--xwrt-hero-ink);
 }
 
 .xwrt-ota-hero-sub {
   margin: 4px 0 0;
   font-size: 13px;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--xwrt-hero-ink);
+  opacity: 0.78;
 }
 
 .xwrt-ota-pill {
@@ -148,9 +156,9 @@ const styles = `
   align-items: center;
   padding: 7px 14px;
   border-radius: var(--radius-pill, 999px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.3);
+  color: var(--xwrt-hero-ink);
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -162,19 +170,14 @@ const styles = `
   height: 7px;
   margin-right: 7px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.75);
+  background: currentColor;
+  opacity: 0.75;
 }
-
-.xwrt-ota-pill-success::before { background: #6ef3b0; }
-.xwrt-ota-pill-primary::before { background: #fff; }
-.xwrt-ota-pill-info::before { background: #9be7ff; }
-.xwrt-ota-pill-warning::before { background: #ffd166; }
-.xwrt-ota-pill-danger::before { background: #ff9aa8; }
 
 .xwrt-ota-status {
   margin: 0;
-  padding: 0.75rem var(--section-inset, 1.25rem);
-  border-radius: var(--radius-control, 0.375rem);
+  padding: 0.75rem var(--v-card-px, var(--section-inset, 1.25rem));
+  border-radius: var(--v-r, var(--radius-control, 0.375rem));
   background: var(--xwrt-panel);
   color: var(--xwrt-muted);
   font-size: 13.5px;
@@ -188,7 +191,8 @@ const styles = `
 .xwrt-ota-facts {
   display: flex;
   flex-direction: column;
-  padding: 4px var(--section-inset, 1.25rem);
+  padding: 4px var(--v-card-px, var(--section-inset, 1.25rem));
+  border: 1px solid var(--v-line, transparent);
   border-radius: var(--xwrt-radius);
   background: var(--xwrt-surface);
   box-shadow: var(--xwrt-shadow);
@@ -233,7 +237,8 @@ const styles = `
 }
 
 .xwrt-ota-progress-card {
-  padding: var(--field-gap, 1rem) var(--section-inset, 1.25rem);
+  padding: var(--v-card-py, var(--field-gap, 1rem)) var(--v-card-px, var(--section-inset, 1.25rem));
+  border: 1px solid var(--v-line, transparent);
   border-radius: var(--xwrt-radius);
   background: var(--xwrt-surface);
   box-shadow: var(--xwrt-shadow);
@@ -257,14 +262,14 @@ const styles = `
   font-size: 15px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--xwrt-primary);
+  color: var(--xwrt-accent-text);
 }
 
 .xwrt-ota-progress-track {
   position: relative;
   height: 14px;
   border-radius: var(--radius-pill, 999px);
-  background: var(--progress-bg, #e9ecef);
+  background: var(--xwrt-track);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
   overflow: hidden;
 }
@@ -301,7 +306,7 @@ const styles = `
 }
 
 .xwrt-ota-progress.is-complete .xwrt-ota-progress-fill {
-  background-image: linear-gradient(90deg, var(--xwrt-success), var(--xwrt-primary-2));
+  background-image: linear-gradient(90deg, var(--xwrt-success), var(--xwrt-done-b));
   animation: none;
 }
 
@@ -340,7 +345,7 @@ const styles = `
 }
 
 .xwrt-ota-note a {
-  color: var(--link-color, var(--xwrt-primary));
+  color: var(--v-accent-text, var(--link-color, var(--xwrt-primary)));
 }
 
 @keyframes xwrt-ota-flow {
@@ -487,11 +492,11 @@ return view.extend({
     } else if (data.phase === 'ready' && data.download_ready) {
       label = '安装更新';
       actionable = true;
-      variant = 'cbi-button-negative';
+      variant = 'cbi-button-negative important';
     } else if (data.phase === 'available' && data.has_update) {
       label = '下载版本';
       actionable = true;
-      variant = 'cbi-button-action';
+      variant = 'cbi-button-positive important';
     } else if (data.phase === 'version_unknown') {
       label = '无法判断版本';
     } else if (['idle', 'error'].includes(data.phase)) {

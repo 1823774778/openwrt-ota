@@ -173,16 +173,14 @@ const styles = `
 
 .xwrt-ota-status {
   margin: 0;
-  padding: 11px 14px;
+  padding: 0.75rem var(--section-inset, 1.25rem);
   border-radius: var(--radius-control, 0.375rem);
-  border: 1px solid var(--xwrt-line);
   background: var(--xwrt-panel);
   color: var(--xwrt-muted);
   font-size: 13.5px;
 }
 
 .xwrt-ota-status.is-error {
-  border-color: rgba(245, 54, 92, 0.35);
   background: rgba(245, 54, 92, 0.08);
   color: var(--xwrt-danger);
 }
@@ -190,8 +188,7 @@ const styles = `
 .xwrt-ota-facts {
   display: flex;
   flex-direction: column;
-  padding: 4px 18px;
-  border: 1px solid var(--xwrt-line);
+  padding: 4px var(--section-inset, 1.25rem);
   border-radius: var(--xwrt-radius);
   background: var(--xwrt-surface);
   box-shadow: var(--xwrt-shadow);
@@ -236,9 +233,8 @@ const styles = `
 }
 
 .xwrt-ota-progress-card {
-  padding: 16px 18px;
+  padding: var(--field-gap, 1rem) var(--section-inset, 1.25rem);
   border-radius: var(--xwrt-radius);
-  border: 1px solid var(--xwrt-line);
   background: var(--xwrt-surface);
   box-shadow: var(--xwrt-shadow);
 }
@@ -334,57 +330,6 @@ const styles = `
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-}
-
-.xwrt-ota-btn {
-  appearance: none;
-  border: 1px solid transparent;
-  border-radius: var(--radius-pill, 999px);
-  padding: 11px 24px;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.2;
-  cursor: pointer;
-  transition: transform 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease, color 0.16s ease;
-}
-
-.xwrt-ota-btn:focus-visible {
-  outline: 2px solid var(--xwrt-primary);
-  outline-offset: 2px;
-}
-
-.xwrt-ota-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-  box-shadow: none;
-  transform: none;
-}
-
-.xwrt-ota-btn-primary {
-  color: #fff;
-  background-image: linear-gradient(135deg, var(--xwrt-primary), var(--xwrt-primary-2));
-  box-shadow: 0 10px 20px -10px var(--xwrt-ring);
-}
-
-.xwrt-ota-btn-danger {
-  color: #fff;
-  background-image: linear-gradient(135deg, var(--xwrt-warning), var(--xwrt-danger));
-  box-shadow: 0 10px 20px -10px rgba(245, 54, 92, 0.4);
-}
-
-.xwrt-ota-btn-ghost {
-  color: var(--xwrt-text);
-  background: var(--xwrt-surface);
-  border-color: var(--xwrt-line);
-}
-
-.xwrt-ota-btn-primary:not(:disabled):hover,
-.xwrt-ota-btn-danger:not(:disabled):hover {
-  transform: translateY(-1px);
-}
-
-.xwrt-ota-btn-ghost:not(:disabled):hover {
-  background: var(--surface-active, #e4e9ee);
 }
 
 .xwrt-ota-note {
@@ -534,7 +479,7 @@ return view.extend({
     };
     let label = '暂无更新';
     let actionable = false;
-    let variant = 'ghost';
+    let variant = '';
 
     if (busy) {
       const pendingLabels = { check: '检查中…', clean: '清理中…', download: '下载中…', upgrade: '校验中…' };
@@ -542,21 +487,21 @@ return view.extend({
     } else if (data.phase === 'ready' && data.download_ready) {
       label = '安装更新';
       actionable = true;
-      variant = 'danger';
+      variant = 'cbi-button-negative';
     } else if (data.phase === 'available' && data.has_update) {
       label = '下载版本';
       actionable = true;
-      variant = 'primary';
+      variant = 'cbi-button-action';
     } else if (data.phase === 'version_unknown') {
       label = '无法判断版本';
     } else if (['idle', 'error'].includes(data.phase)) {
       label = '重新检查';
       actionable = true;
-      variant = 'primary';
+      variant = 'cbi-button-action';
     }
 
     this.actionButton.textContent = label;
-    this.actionButton.className = `xwrt-ota-btn xwrt-ota-btn-${variant}`;
+    this.actionButton.className = `btn cbi-button${variant ? ` ${variant}` : ''}`;
     this.actionButton.disabled = isReadonly || busy || !actionable || this.connectionFailed;
     this.cleanButton.disabled = isReadonly || busy || this.connectionFailed;
   },
@@ -717,13 +662,13 @@ return view.extend({
 
     this.actionButton = E('button', {
       type: 'button',
-      class: 'xwrt-ota-btn xwrt-ota-btn-ghost',
+      class: 'btn cbi-button',
       disabled: true,
       click: ui.createHandlerFn(this, 'handleAction'),
     }, '暂无更新');
     this.cleanButton = E('button', {
       type: 'button',
-      class: 'xwrt-ota-btn xwrt-ota-btn-ghost',
+      class: 'btn cbi-button',
       click: ui.createHandlerFn(this, 'start', 'clean'),
     }, '清理缓存');
 

@@ -25,10 +25,15 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential ca-certificates curl libssl-dev meson ninja-build \
-            pkg-config python3 shellcheck zlib1g-dev
+          set -euo pipefail
+          python3 -m pip install --user --break-system-packages \
+            --disable-pip-version-check --retries 5 --timeout 30 meson ninja
+          printf '%s\n' "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+          meson --version
+          ninja --version
+          gcc --version | head -1
+          pkg-config --modversion openssl zlib
 
       - name: Check plugin syntax
         run: |
@@ -43,6 +48,7 @@ jobs:
           mkdir -p "$tools"
           curl --fail --location --silent --show-error \
             --proto '=https' --proto-redir '=https' \
+            --retry 5 --retry-all-errors --retry-delay 3 \
             --connect-timeout 20 --max-time 180 \
             "https://codeload.github.com/alpinelinux/apk-tools/tar.gz/$APK_TOOLS_COMMIT" \
             --output "$tools/source.tar.gz"

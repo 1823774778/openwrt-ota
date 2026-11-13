@@ -41,61 +41,36 @@ const progressCopy = {
 
 const styles = `
 .xwrt-ota {
-  --xwrt-primary: var(--v-accent-fill, var(--primary, #5e72e4));
-  --xwrt-primary-2: var(--v-accent-fill-hover, var(--info, #11cdef));
-  --xwrt-accent-text: var(--v-accent-text, var(--primary, #5e72e4));
-  --xwrt-success: var(--v-ok, var(--success, #2dce89));
-  --xwrt-warning: var(--v-warn, var(--warning, #fb6340));
-  --xwrt-danger: var(--v-err, var(--danger, #f5365c));
-  --xwrt-surface: var(--v-surface, var(--surface-color, #fff));
-  --xwrt-panel: var(--v-surface-3, var(--surface-muted, #f6f9fc));
-  --xwrt-line: var(--v-line, var(--border-muted, #e9ecef));
-  --xwrt-text: var(--v-text, var(--text-strong, #32325d));
-  --xwrt-muted: var(--v-text-2, var(--muted-text, #626f80));
-  --xwrt-radius: var(--v-r-lg, var(--radius-card, 0.75rem));
-  --xwrt-shadow: var(--v-shadow, var(--section-shadow, 0 0 1rem rgba(136, 152, 170, 0.15)));
-  --xwrt-ring: var(--v-accent-soft, var(--accent-shadow-color, rgba(94, 114, 228, 0.18)));
-  --xwrt-hero-ink: var(--v-accent-fill-ink, #fff);
-  --xwrt-hero-a: var(--v-accent-fill, var(--primary, #5e72e4));
-  --xwrt-hero-b: var(--v-accent-fill-hover, var(--info, #11cdef));
-  --xwrt-hero-glow: rgba(255, 255, 255, 0.24);
-  --xwrt-pill-bg: rgba(255, 255, 255, 0.3);
-  --xwrt-pill-line: rgba(255, 255, 255, 0.45);
-  --xwrt-pill-ink: var(--xwrt-hero-ink);
-  --xwrt-track: var(--v-surface-3, var(--progress-bg, #e9ecef));
-  --xwrt-done-b: var(--v-info, var(--xwrt-primary-2));
+  --xwrt-accent: var(--primary-color-high, var(--primary, var(--v-accent-fill, #4f7cff)));
+  --xwrt-success: var(--success-color-high, var(--success, var(--v-ok, #16a34a)));
+  --xwrt-warning: var(--warning, var(--v-warn, #d97706));
+  --xwrt-danger: var(--error-color-high, var(--danger, var(--v-err, #dc2626)));
+  --xwrt-radius: var(--radius-card, var(--v-r-lg, 0.75rem));
+  --xwrt-muted: rgba(127, 127, 127, 0.9);
+  --xwrt-muted: color-mix(in srgb, currentColor 66%, transparent);
+  --xwrt-line: rgba(127, 127, 127, 0.28);
+  --xwrt-line: color-mix(in srgb, currentColor 18%, transparent);
+  --xwrt-panel: rgba(127, 127, 127, 0.08);
+  --xwrt-panel: color-mix(in srgb, currentColor 7%, transparent);
+  --xwrt-track: rgba(127, 127, 127, 0.18);
+  --xwrt-track: color-mix(in srgb, currentColor 14%, transparent);
   display: flex;
   flex-direction: column;
-  gap: var(--v-sp-4, 18px);
-  color: var(--xwrt-text);
-}
-
-html[data-darkmode="true"] .xwrt-ota {
-  --xwrt-hero-a: var(--v-surface-2, #1b1d21);
-  --xwrt-hero-b: var(--v-surface-3, #22252a);
-  --xwrt-hero-glow: var(--v-accent-soft, rgba(200, 240, 49, 0.1));
-  --xwrt-hero-ink: var(--v-text, #e8eaed);
-  --xwrt-pill-bg: var(--v-accent-soft, rgba(200, 240, 49, 0.1));
-  --xwrt-pill-line: var(--v-accent-line, rgba(200, 240, 49, 0.5));
-  --xwrt-pill-ink: var(--v-accent-text, #c8f031);
-  --xwrt-ring: rgba(0, 0, 0, 0.45);
+  gap: 18px;
+  color: inherit;
 }
 
 .xwrt-ota-hero {
-  position: relative;
-  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  padding: 22px 24px;
+  padding: 20px 22px;
+  border: 1px solid var(--xwrt-line);
   border-radius: var(--xwrt-radius);
-  color: var(--xwrt-hero-ink);
-  background:
-    radial-gradient(130% 160% at 100% 0%, var(--xwrt-hero-glow) 0%, transparent 58%),
-    linear-gradient(135deg, var(--xwrt-hero-a) 0%, var(--xwrt-hero-b) 135%);
-  box-shadow: 0 14px 30px -14px var(--xwrt-ring);
+  background: var(--xwrt-panel);
+  color: inherit;
 }
 
 .xwrt-ota-hero-main {
@@ -114,15 +89,14 @@ html[data-darkmode="true"] .xwrt-ota {
   box-shadow: none;
   font-size: 20px;
   line-height: 1.3;
-  color: var(--xwrt-hero-ink);
+  color: inherit;
 }
 
 .xwrt-ota-hero-sub {
   margin: 4px 0 0;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--xwrt-hero-ink);
-  opacity: 0.78;
+  color: var(--xwrt-muted);
 }
 
 .xwrt-ota-pill {
@@ -130,13 +104,38 @@ html[data-darkmode="true"] .xwrt-ota {
   display: inline-flex;
   align-items: center;
   padding: 7px 14px;
-  border-radius: var(--radius-pill, 999px);
-  border: 1px solid var(--xwrt-pill-line);
-  background: var(--xwrt-pill-bg);
-  color: var(--xwrt-pill-ink);
+  border-radius: 999px;
+  border: 1px solid var(--xwrt-line);
+  background: var(--xwrt-panel);
+  color: inherit;
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+.xwrt-ota-pill-neutral {
+  color: var(--xwrt-muted);
+}
+
+.xwrt-ota-pill-primary,
+.xwrt-ota-pill-info {
+  color: var(--xwrt-accent);
+  border-color: currentColor;
+}
+
+.xwrt-ota-pill-success {
+  color: var(--xwrt-success);
+  border-color: currentColor;
+}
+
+.xwrt-ota-pill-warning {
+  color: var(--xwrt-warning);
+  border-color: currentColor;
+}
+
+.xwrt-ota-pill-danger {
+  color: var(--xwrt-danger);
+  border-color: currentColor;
 }
 
 .xwrt-ota-pill::before {
@@ -151,26 +150,26 @@ html[data-darkmode="true"] .xwrt-ota {
 
 .xwrt-ota-status {
   margin: 0;
-  padding: 0.75rem var(--v-card-px, var(--section-inset, 1.25rem));
-  border-radius: var(--v-r, var(--radius-control, 0.375rem));
+  padding: 0.75rem 1.1rem;
+  border-radius: var(--radius-control, 0.375rem);
   background: var(--xwrt-panel);
   color: var(--xwrt-muted);
   font-size: 13.5px;
 }
 
 .xwrt-ota-status.is-error {
-  background: rgba(245, 54, 92, 0.08);
+  background: rgba(220, 38, 38, 0.1);
+  background: color-mix(in srgb, var(--xwrt-danger) 12%, transparent);
   color: var(--xwrt-danger);
 }
 
 .xwrt-ota-facts {
   display: flex;
   flex-direction: column;
-  padding: 4px var(--v-card-px, var(--section-inset, 1.25rem));
-  border: 1px solid var(--v-line, transparent);
+  padding: 4px 1.1rem;
+  border: 1px solid var(--xwrt-line);
   border-radius: var(--xwrt-radius);
-  background: var(--xwrt-surface);
-  box-shadow: var(--xwrt-shadow);
+  background: transparent;
 }
 
 .xwrt-ota-fact {
@@ -199,7 +198,7 @@ html[data-darkmode="true"] .xwrt-ota {
   font-size: 15px;
   font-weight: 600;
   line-height: 1.45;
-  color: var(--xwrt-text);
+  color: inherit;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -212,11 +211,10 @@ html[data-darkmode="true"] .xwrt-ota {
 }
 
 .xwrt-ota-progress-card {
-  padding: var(--v-card-py, var(--field-gap, 1rem)) var(--v-card-px, var(--section-inset, 1.25rem));
-  border: 1px solid var(--v-line, transparent);
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--xwrt-line);
   border-radius: var(--xwrt-radius);
-  background: var(--xwrt-surface);
-  box-shadow: var(--xwrt-shadow);
+  background: transparent;
 }
 
 .xwrt-ota-progress-head {
@@ -230,22 +228,21 @@ html[data-darkmode="true"] .xwrt-ota {
 .xwrt-ota-progress-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--xwrt-text);
+  color: inherit;
 }
 
 .xwrt-ota-progress-percent {
   font-size: 15px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--xwrt-accent-text);
+  color: var(--xwrt-accent);
 }
 
 .xwrt-ota-progress-track {
   position: relative;
   height: 14px;
-  border-radius: var(--radius-pill, 999px);
+  border-radius: 999px;
   background: var(--xwrt-track);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
   overflow: hidden;
 }
 
@@ -254,8 +251,7 @@ html[data-darkmode="true"] .xwrt-ota {
   height: 100%;
   width: 0;
   border-radius: inherit;
-  background-image: linear-gradient(90deg, var(--xwrt-primary), var(--xwrt-primary-2));
-  background-size: 220% 100%;
+  background-color: var(--xwrt-accent);
   transition: width 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
@@ -271,18 +267,13 @@ html[data-darkmode="true"] .xwrt-ota {
   opacity: 0;
 }
 
-.xwrt-ota-progress.is-active .xwrt-ota-progress-fill {
-  animation: xwrt-ota-flow 2.4s linear infinite;
-}
-
 .xwrt-ota-progress.is-active .xwrt-ota-progress-fill::after {
   opacity: 1;
   animation: xwrt-ota-stripes 1s linear infinite;
 }
 
 .xwrt-ota-progress.is-complete .xwrt-ota-progress-fill {
-  background-image: linear-gradient(90deg, var(--xwrt-success), var(--xwrt-done-b));
-  animation: none;
+  background-color: var(--xwrt-success);
 }
 
 .xwrt-ota-progress.is-complete .xwrt-ota-progress-fill::after {
@@ -319,15 +310,6 @@ html[data-darkmode="true"] .xwrt-ota {
   color: var(--xwrt-muted);
 }
 
-.xwrt-ota-note a {
-  color: var(--v-accent-text, var(--link-color, var(--xwrt-primary)));
-}
-
-@keyframes xwrt-ota-flow {
-  from { background-position: 0% 0; }
-  to { background-position: 220% 0; }
-}
-
 @keyframes xwrt-ota-stripes {
   from { background-position: 0 0; }
   to { background-position: 24px 0; }
@@ -357,7 +339,6 @@ html[data-darkmode="true"] .xwrt-ota {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .xwrt-ota-progress.is-active .xwrt-ota-progress-fill,
   .xwrt-ota-progress.is-active .xwrt-ota-progress-fill::after,
   .xwrt-ota-progress.is-indeterminate .xwrt-ota-progress-fill {
     animation: none;

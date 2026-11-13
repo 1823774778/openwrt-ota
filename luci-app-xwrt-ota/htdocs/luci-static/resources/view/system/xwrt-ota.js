@@ -556,10 +556,11 @@ return view.extend({
     const data = this.data;
     if (!data || data.phase !== 'ready' || !data.download_ready || data.busy || this.pendingAction || isReadonly) return;
 
+    const backupAllowed = data.allow_backup !== false;
     const keep = E('input', {
       type: 'checkbox',
-      checked: data.allow_backup !== false,
-      disabled: data.allow_backup === false,
+      checked: backupAllowed ? '' : null,
+      disabled: backupAllowed ? null : '',
     });
     const acknowledge = E('input', { type: 'checkbox' });
     const submit = E('button', {

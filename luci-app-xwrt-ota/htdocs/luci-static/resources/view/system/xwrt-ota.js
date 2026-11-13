@@ -116,6 +116,19 @@ const styles = `
   overflow-wrap: anywhere;
 }
 
+.xwrt-ota .cbi-value-description {
+  margin-inline-start: 0;
+  padding-inline-start: 0;
+}
+
+.xwrt-ota .cbi-value-description::before {
+  display: none;
+}
+
+.xwrt-ota .cbi-value-description:empty {
+  display: none;
+}
+
 .xwrt-ota-actions {
   display: flex;
   flex-wrap: wrap;

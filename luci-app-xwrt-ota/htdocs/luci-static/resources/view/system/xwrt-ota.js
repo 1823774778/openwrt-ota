@@ -440,7 +440,7 @@ return view.extend({
     const page = E('div', { class: 'cbi-map xwrt-ota' }, [
       E('style', {}, styles),
       E('h2', {}, 'XWRT 在线更新'),
-      E('div', { class: 'cbi-map-descr' }, '自动匹配京东云雅典娜 / 亚瑟的 XWRT 正式版固件'),
+      E('div', { class: 'cbi-map-descr' }, '自动匹配当前设备的XWRT正式版固件'),
       E('fieldset', { class: 'cbi-section' }, [
         E('h3', {}, '设备与版本'),
         E('div', { class: 'cbi-section-node' }, [

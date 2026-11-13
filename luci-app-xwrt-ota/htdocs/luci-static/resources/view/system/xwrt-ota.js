@@ -45,72 +45,38 @@ const styles = `
   --xwrt-success: var(--success-color-high, var(--success, var(--v-ok, #16a34a)));
   --xwrt-warning: var(--warning, var(--v-warn, #d97706));
   --xwrt-danger: var(--error-color-high, var(--danger, var(--v-err, #dc2626)));
-  --xwrt-radius: var(--radius-card, var(--v-r-lg, 0.75rem));
   --xwrt-muted: rgba(127, 127, 127, 0.9);
   --xwrt-muted: color-mix(in srgb, currentColor 66%, transparent);
   --xwrt-line: rgba(127, 127, 127, 0.28);
   --xwrt-line: color-mix(in srgb, currentColor 18%, transparent);
   --xwrt-panel: rgba(127, 127, 127, 0.08);
   --xwrt-panel: color-mix(in srgb, currentColor 7%, transparent);
-  --xwrt-track: rgba(127, 127, 127, 0.18);
-  --xwrt-track: color-mix(in srgb, currentColor 14%, transparent);
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  color: inherit;
-}
-
-.xwrt-ota-hero {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 20px 22px;
-  border: 1px solid var(--xwrt-line);
-  border-radius: var(--xwrt-radius);
-  background: var(--xwrt-panel);
-  color: inherit;
-}
-
-.xwrt-ota-hero-main {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-width: 0;
-}
-
-.xwrt-ota-hero-title {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-  font-size: 20px;
-  line-height: 1.3;
-  color: inherit;
-}
-
-.xwrt-ota-hero-sub {
-  margin: 4px 0 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--xwrt-muted);
 }
 
 .xwrt-ota-pill {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  padding: 7px 14px;
-  border-radius: 999px;
+  display: inline-block;
+  padding: 1px 10px;
   border: 1px solid var(--xwrt-line);
+  border-radius: 999px;
   background: var(--xwrt-panel);
   color: inherit;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  line-height: 1.7;
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+
+.xwrt-ota-pill::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.75;
+  vertical-align: 1px;
 }
 
 .xwrt-ota-pill-neutral {
@@ -138,162 +104,16 @@ const styles = `
   border-color: currentColor;
 }
 
-.xwrt-ota-pill::before {
-  content: '';
-  width: 7px;
-  height: 7px;
-  margin-right: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.75;
-}
-
 .xwrt-ota-status {
-  margin: 0;
-  padding: 0.75rem 1.1rem;
-  border-radius: var(--radius-control, 0.375rem);
-  background: var(--xwrt-panel);
   color: var(--xwrt-muted);
-  font-size: 13.5px;
 }
 
 .xwrt-ota-status.is-error {
-  background: rgba(220, 38, 38, 0.1);
-  background: color-mix(in srgb, var(--xwrt-danger) 12%, transparent);
   color: var(--xwrt-danger);
 }
 
-.xwrt-ota-facts {
-  display: flex;
-  flex-direction: column;
-  padding: 4px 1.1rem;
-  border: 1px solid var(--xwrt-line);
-  border-radius: var(--xwrt-radius);
-  background: transparent;
-}
-
-.xwrt-ota-fact {
-  display: grid;
-  grid-template-columns: 132px minmax(0, 1fr);
-  gap: 12px;
-  align-items: baseline;
-  min-width: 0;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--xwrt-line);
-}
-
-.xwrt-ota-fact:last-child {
-  border-bottom: 0;
-}
-
-.xwrt-ota-fact-label {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--xwrt-muted);
-}
-
-.xwrt-ota-fact-value {
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.45;
-  color: inherit;
+.xwrt-ota .cbi-value-field {
   overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.xwrt-ota-hint {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--xwrt-muted);
-}
-
-.xwrt-ota-progress-card {
-  padding: 1rem 1.1rem;
-  border: 1px solid var(--xwrt-line);
-  border-radius: var(--xwrt-radius);
-  background: transparent;
-}
-
-.xwrt-ota-progress-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-.xwrt-ota-progress-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: inherit;
-}
-
-.xwrt-ota-progress-percent {
-  font-size: 15px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--xwrt-accent);
-}
-
-.xwrt-ota-progress-track {
-  position: relative;
-  height: 14px;
-  border-radius: 999px;
-  background: var(--xwrt-track);
-  overflow: hidden;
-}
-
-.xwrt-ota-progress-fill {
-  position: relative;
-  height: 100%;
-  width: 0;
-  border-radius: inherit;
-  background-color: var(--xwrt-accent);
-  transition: width 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-
-.xwrt-ota-progress-fill::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: repeating-linear-gradient(
-    115deg,
-    rgba(255, 255, 255, 0.28) 0 12px,
-    rgba(255, 255, 255, 0) 12px 24px
-  );
-  opacity: 0;
-}
-
-.xwrt-ota-progress.is-active .xwrt-ota-progress-fill::after {
-  opacity: 1;
-  animation: xwrt-ota-stripes 1s linear infinite;
-}
-
-.xwrt-ota-progress.is-complete .xwrt-ota-progress-fill {
-  background-color: var(--xwrt-success);
-}
-
-.xwrt-ota-progress.is-complete .xwrt-ota-progress-fill::after {
-  opacity: 0;
-}
-
-.xwrt-ota-progress.is-indeterminate .xwrt-ota-progress-fill {
-  width: 38% !important;
-  animation: xwrt-ota-indeterminate 1.5s ease-in-out infinite;
-}
-
-.xwrt-ota-progress-meta {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 9px;
-  font-size: 12.5px;
-  color: var(--xwrt-muted);
-  font-variant-numeric: tabular-nums;
 }
 
 .xwrt-ota-actions {
@@ -303,44 +123,29 @@ const styles = `
   gap: 12px;
 }
 
-.xwrt-ota-note {
-  margin: 0;
+.xwrt-ota-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
   font-size: 12.5px;
-  line-height: 1.6;
   color: var(--xwrt-muted);
+  font-variant-numeric: tabular-nums;
 }
 
-@keyframes xwrt-ota-stripes {
-  from { background-position: 0 0; }
-  to { background-position: 24px 0; }
+.xwrt-ota-progress.is-indeterminate > div {
+  width: 100% !important;
+  animation: xwrt-ota-pulse 1.5s ease-in-out infinite;
 }
 
-@keyframes xwrt-ota-indeterminate {
-  0% { transform: translateX(-110%); }
-  100% { transform: translateX(320%); }
-}
-
-@media (max-width: 720px) {
-  .xwrt-ota-hero {
-    padding: 18px;
-  }
-}
-
-@media (max-width: 560px) {
-  .xwrt-ota-facts {
-    padding: 2px 14px;
-  }
-
-  .xwrt-ota-fact {
-    grid-template-columns: 1fr;
-    gap: 4px;
-    padding: 12px 0;
-  }
+@keyframes xwrt-ota-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .xwrt-ota-progress.is-active .xwrt-ota-progress-fill::after,
-  .xwrt-ota-progress.is-indeterminate .xwrt-ota-progress-fill {
+  .xwrt-ota-progress.is-indeterminate > div {
     animation: none;
   }
 }
@@ -496,17 +301,14 @@ return view.extend({
         ? percent
         : (data.phase === 'flashing' ? null : 100);
 
-      this.progressTitle.textContent = copy[0];
+      this.progressNode.title = shownPercent === null
+        ? copy[0]
+        : `${copy[0]} · ${shownPercent}%`;
       this.progressState.textContent = copy[1];
-      this.progressPercent.textContent = shownPercent === null || data.asset_size <= 0
-        ? '—'
-        : `${shownPercent}%`;
       this.progressFill.style.width = `${shownPercent === null ? 100 : shownPercent}%`;
       this.progressBytes.textContent = `${sizeLabel(data.downloaded)} / ${sizeLabel(data.asset_size)}`;
       if (shownPercent === null) this.progressNode.removeAttribute('aria-valuenow');
       else this.progressNode.setAttribute('aria-valuenow', String(shownPercent));
-      this.progressNode.classList.toggle('is-active', ['downloading', 'verifying'].includes(data.phase));
-      this.progressNode.classList.toggle('is-complete', data.phase === 'ready');
       this.progressNode.classList.toggle('is-indeterminate', data.phase === 'flashing');
     }
 
@@ -592,35 +394,36 @@ return view.extend({
   render(data) {
     this.facts = {};
     const fact = (key, label) => {
-      this.facts[key] = E('div', { class: 'xwrt-ota-fact-value' }, '—');
-      return E('div', { class: 'xwrt-ota-fact' }, [
-        E('div', { class: 'xwrt-ota-fact-label' }, label),
+      this.facts[key] = E('div', { class: 'cbi-value-field' }, '—');
+      return E('div', { class: 'cbi-value' }, [
+        E('label', { class: 'cbi-value-title' }, label),
         this.facts[key],
       ]);
     };
 
     this.statusPill = E('span', { class: 'xwrt-ota-pill xwrt-ota-pill-neutral' }, '尚未检查');
-    this.statusNode = E('p', { class: 'xwrt-ota-status', role: 'status', 'aria-live': 'polite' });
-    this.versionHint = E('p', { class: 'xwrt-ota-hint' });
+    this.statusNode = E('span', { class: 'xwrt-ota-status', role: 'status', 'aria-live': 'polite' });
+    this.versionHint = E('div', { class: 'cbi-value-description' });
 
-    this.progressTitle = E('span', { class: 'xwrt-ota-progress-title' }, '正在下载固件');
-    this.progressPercent = E('span', { class: 'xwrt-ota-progress-percent' }, '0%');
-    this.progressFill = E('div', { class: 'xwrt-ota-progress-fill' });
+    this.progressFill = E('div', { style: 'width:0%' });
     this.progressBytes = E('span', {}, '—');
     this.progressState = E('span', {}, '');
     this.progressNode = E('div', {
-      class: 'xwrt-ota-progress',
+      class: 'xwrt-ota-progress cbi-progressbar',
+      title: '',
       role: 'progressbar',
       'aria-valuemin': '0',
       'aria-valuemax': '100',
       'aria-valuenow': '0',
       'aria-label': '固件下载进度',
-    }, [
-      E('div', { class: 'xwrt-ota-progress-head' }, [this.progressTitle, this.progressPercent]),
-      E('div', { class: 'xwrt-ota-progress-track' }, [this.progressFill]),
-      E('div', { class: 'xwrt-ota-progress-meta' }, [this.progressBytes, this.progressState]),
+    }, [this.progressFill]);
+    this.progressWrap = E('fieldset', { class: 'cbi-section', style: 'display:none' }, [
+      E('h3', {}, '固件下载'),
+      E('div', { class: 'cbi-section-node' }, [
+        this.progressNode,
+        E('div', { class: 'xwrt-ota-progress-meta' }, [this.progressBytes, this.progressState]),
+      ]),
     ]);
-    this.progressWrap = E('div', { class: 'xwrt-ota-progress-card' }, [this.progressNode]);
 
     this.actionButton = E('button', {
       type: 'button',
@@ -634,30 +437,38 @@ return view.extend({
       click: ui.createHandlerFn(this, 'start', 'clean'),
     }, '清理缓存');
 
-    const page = E('div', { class: 'xwrt-ota' }, [
+    const page = E('div', { class: 'cbi-map xwrt-ota' }, [
       E('style', {}, styles),
-      E('div', { class: 'xwrt-ota-hero' }, [
-        E('div', { class: 'xwrt-ota-hero-main' }, [
-          E('div', {}, [
-            E('h2', { class: 'xwrt-ota-hero-title' }, 'XWRT 在线更新'),
-            E('p', { class: 'xwrt-ota-hero-sub' }, '自动匹配京东云雅典娜 / 亚瑟的 XWRT 正式版固件'),
+      E('h2', {}, 'XWRT 在线更新'),
+      E('div', { class: 'cbi-map-descr' }, '自动匹配京东云雅典娜 / 亚瑟的 XWRT 正式版固件'),
+      E('fieldset', { class: 'cbi-section' }, [
+        E('h3', {}, '设备与版本'),
+        E('div', { class: 'cbi-section-node' }, [
+          fact('model', '当前设备'),
+          fact('current', '当前固件版本'),
+          fact('latest', '最新版本'),
+          E('div', { class: 'cbi-value' }, [
+            E('label', { class: 'cbi-value-title' }, '状态'),
+            E('div', { class: 'cbi-value-field' }, [
+              this.statusPill,
+              ' ',
+              this.statusNode,
+              this.versionHint,
+            ]),
           ]),
         ]),
-        this.statusPill,
       ]),
-      this.statusNode,
-      E('div', { class: 'xwrt-ota-facts' }, [
-        fact('model', '当前设备'),
-        fact('current', '当前固件版本'),
-        fact('latest', '最新版本'),
-      ]),
-      this.versionHint,
       this.progressWrap,
-      E('div', { class: 'xwrt-ota-actions' }, [
-        this.actionButton,
-        this.cleanButton,
+      E('fieldset', { class: 'cbi-section' }, [
+        E('h3', {}, '操作'),
+        E('div', { class: 'cbi-section-node' }, [
+          E('div', { class: 'xwrt-ota-actions' }, [
+            this.actionButton,
+            this.cleanButton,
+          ]),
+        ]),
       ]),
-      E('p', { class: 'xwrt-ota-note' }, [
+      E('div', { class: 'cbi-map-descr' }, [
         '升级前请先',
         E('a', { href: L.url('admin/system/flash') }, '备份系统配置'),
         '。切换页面会保留已下载固件，主动清理或路由器重启后缓存失效。',

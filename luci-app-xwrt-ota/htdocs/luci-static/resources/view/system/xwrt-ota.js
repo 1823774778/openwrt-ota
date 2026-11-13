@@ -313,7 +313,7 @@ return view.extend({
     }
 
     if (data.version_status === 'current') {
-      this.versionHint.textContent = '已安装最新正式版固件。';
+      this.versionHint.textContent = '';
     } else if (data.download_ready) {
       this.versionHint.textContent = '安装包已下载并通过校验，可直接安装。';
     } else if (data.version_status === 'update') {

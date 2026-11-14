@@ -1,0 +1,2 @@
+config xwrt-ota 'main'
+	option proxy_prefix ''

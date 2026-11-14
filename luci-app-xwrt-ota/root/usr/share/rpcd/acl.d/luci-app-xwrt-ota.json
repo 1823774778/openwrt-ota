@@ -17,6 +17,8 @@
         "/usr/libexec/xwrt-ota check": ["exec"],
         "/usr/libexec/xwrt-ota download": ["exec"],
         "/usr/libexec/xwrt-ota clean": ["exec"],
+        "/usr/libexec/xwrt-ota set-proxy": ["exec"],
+        "/usr/libexec/xwrt-ota set-proxy *": ["exec"],
         "/usr/libexec/xwrt-ota upgrade 0 *": ["exec"],
         "/usr/libexec/xwrt-ota upgrade 1 *": ["exec"]
       }

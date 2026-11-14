@@ -136,6 +136,18 @@ const styles = `
   gap: 12px;
 }
 
+.xwrt-ota-proxy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.xwrt-ota-proxy > input {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
 .xwrt-ota-progress-meta {
   display: flex;
   justify-content: space-between;
@@ -215,6 +227,28 @@ return view.extend({
       this.statusNode.textContent = '无法连接更新服务，正在等待重连…';
       this.actionButton.disabled = true;
       this.cleanButton.disabled = true;
+      this.proxyInput.disabled = true;
+      this.proxyButton.disabled = true;
+    }
+  },
+
+  async saveProxy() {
+    if (isReadonly || this.savingProxy || this.connectionFailed) return;
+    const value = (this.proxyInput.value || '').trim();
+    this.savingProxy = true;
+    this.updateButtons();
+
+    try {
+      await runHelper(['set-proxy', value]);
+      this.proxyDirty = false;
+      ui.addNotification(null, E('p', {},
+        value ? '备用代理前缀已保存。' : '备用代理前缀已清除。'), 'info');
+      await this.refresh();
+    } catch (error) {
+      this.reportError(error);
+    } finally {
+      this.savingProxy = false;
+      this.updateButtons();
     }
   },
 
@@ -283,6 +317,8 @@ return view.extend({
     this.actionButton.className = `btn cbi-button${variant ? ` ${variant}` : ''}`;
     this.actionButton.disabled = isReadonly || busy || !actionable || this.connectionFailed;
     this.cleanButton.disabled = isReadonly || busy || this.connectionFailed;
+    this.proxyInput.disabled = isReadonly || busy || this.connectionFailed;
+    this.proxyButton.disabled = isReadonly || busy || this.connectionFailed || this.savingProxy;
   },
 
   update(data) {
@@ -301,6 +337,8 @@ return view.extend({
       data.current_revision,
     ].filter(Boolean).join(' ') || '无法读取';
     this.facts.latest.textContent = data.name || data.tag || '正在检查…';
+    if (!this.proxyDirty && document.activeElement !== this.proxyInput)
+      this.proxyInput.value = data.proxy_prefix || '';
 
     const showProgress = ['downloading', 'verifying', 'ready', 'flashing'].includes(data.phase);
     this.progressWrap.style.display = showProgress ? '' : 'none';
@@ -450,6 +488,21 @@ return view.extend({
       click: ui.createHandlerFn(this, 'start', 'clean'),
     }, '清理缓存');
 
+    this.proxyInput = E('input', {
+      type: 'text',
+      class: 'cbi-input-text',
+      placeholder: 'https://gh-proxy.com/',
+      maxlength: '200',
+      disabled: isReadonly,
+    });
+    this.proxyInput.addEventListener('input', () => { this.proxyDirty = true; });
+    this.proxyButton = E('button', {
+      type: 'button',
+      class: 'btn cbi-button cbi-button-apply',
+      disabled: isReadonly,
+      click: ui.createHandlerFn(this, 'saveProxy'),
+    }, '保存');
+
     const page = E('div', { class: 'cbi-map xwrt-ota' }, [
       E('style', {}, styles),
       E('h2', {}, 'XWRT 在线更新'),
@@ -478,6 +531,22 @@ return view.extend({
           E('div', { class: 'xwrt-ota-actions' }, [
             this.actionButton,
             this.cleanButton,
+          ]),
+        ]),
+      ]),
+      E('fieldset', { class: 'cbi-section' }, [
+        E('h3', {}, '更新源'),
+        E('div', { class: 'cbi-section-node' }, [
+          E('div', { class: 'cbi-value' }, [
+            E('label', { class: 'cbi-value-title' }, '备用代理前缀'),
+            E('div', { class: 'cbi-value-field' }, [
+              E('div', { class: 'xwrt-ota-proxy' }, [
+                this.proxyInput,
+                this.proxyButton,
+              ]),
+              E('div', { class: 'cbi-value-description' },
+                '留空时仅直连 GitHub；填写后仅在直连失败时自动回退，例如 https://gh-proxy.com/。代理属于第三方，可能查看或改写更新流量，请只使用可信地址。'),
+            ]),
           ]),
         ]),
       ]),

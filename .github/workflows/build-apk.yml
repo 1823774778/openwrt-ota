@@ -78,6 +78,7 @@ jobs:
             --destination "$RUNNER_TEMP/apk-payload" \
             "$OUTPUT_DIR/luci-app-xwrt-ota-1.2.4-r1.apk"
           test -x "$RUNNER_TEMP/apk-payload/usr/libexec/xwrt-ota"
+          test -f "$RUNNER_TEMP/apk-payload/etc/config/xwrt-ota"
           cmp luci-app-xwrt-ota/root/usr/libexec/xwrt-ota "$RUNNER_TEMP/apk-payload/usr/libexec/xwrt-ota"
           cmp luci-app-xwrt-ota/htdocs/luci-static/resources/view/system/xwrt-ota.js "$RUNNER_TEMP/apk-payload/www/luci-static/resources/view/system/xwrt-ota.js"
           python3 -c 'import hashlib, os; from pathlib import Path; output=Path(os.environ["OUTPUT_DIR"]); package=output/"luci-app-xwrt-ota-1.2.4-r1.apk"; (output/"sha256sums").write_text(hashlib.sha256(package.read_bytes()).hexdigest()+"  "+package.name+"\n")'
@@ -143,6 +144,7 @@ jobs:
               '- 读取与“状态 → 概览”相同的构建时间，精确比较到秒；相同版本提示“当前为最新版本”。',
               '- 操作区仅保留“清理缓存”和动态按钮：暂无更新 → 下载版本 → 安装更新。',
               '- 下载完成后切换页面保留安装包，再次进入重新校验复用，阻止重复下载。',
+              '- 可选备用代理前缀：默认直连 GitHub，仅在直连检查或下载失败时回退，可在页面“更新源”中配置。',
               '- 页面使用 LuCI 原生布局并跟随固件当前主题（Bootstrap / Material / Argon / Vantage 等），显示当前设备、当前固件版本和最新版本，进度条使用原生 cbi-progressbar。',
               '- 核对文件大小、SHA256 及系统兼容性。',
               '- 刷写前再次校验，调用原生 sysupgrade，支持选择是否保留配置。',

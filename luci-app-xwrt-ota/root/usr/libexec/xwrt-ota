@@ -15,6 +15,7 @@ LOCK=$WORK/lock
 SELF=/usr/libexec/xwrt-ota
 JSHN=/usr/share/libubox/jshn.sh
 OWN_LOCK=0
+PROXY_PREFIX=''
 BOARD='' MODEL='' TARGET='' NAME='' NOTES='' PUBLISHED=''
 DISTRIBUTION='' VERSION='' REVISION='' DESCRIPTION=''
 CURRENT_BUILD_TIME='' LATEST_BUILD_TIME='' VERSION_STATUS=unknown
@@ -155,6 +156,24 @@ valid_hash() {
 	[ "${#1}" = 64 ] && ! printf '%s' "$1" | grep -q '[^0-9a-f]'
 }
 
+valid_proxy_prefix() {
+	local value=$1
+	[ -z "$value" ] && return 0
+	case "$value" in https://*) ;; *) return 1 ;; esac
+	[ "${#value}" -le 200 ] || return 1
+	! printf '%s' "$value" | grep -q '[^A-Za-z0-9._~:/%-]'
+}
+
+load_proxy_config() {
+	local value=''
+	if command -v uci >/dev/null 2>&1; then
+		value=$(uci -q get xwrt-ota.main.proxy_prefix 2>/dev/null) || value=''
+	fi
+	valid_proxy_prefix "$value" || value=''
+	case "$value" in ''|*/) ;; *) value=$value/ ;; esac
+	PROXY_PREFIX=$value
+}
+
 valid_asset_url() {
 	case "$1" in
 		"https://github.com/$REPOSITORY/releases/download/"*) ;;
@@ -163,7 +182,7 @@ valid_asset_url() {
 	! printf '%s' "$1" | grep -q '[^A-Za-z0-9_./:%+?=&~-]'
 }
 
-fetch() {
+curl_fetch() {
 	local url=$1 output=$2 limit=$3 timeout=$4
 	curl --fail --location --silent --show-error \
 		--proto '=https' --proto-redir '=https' --tlsv1.2 \
@@ -172,6 +191,14 @@ fetch() {
 		--user-agent 'luci-app-xwrt-ota/1.2.4' \
 		--header 'Accept: application/vnd.github+json' \
 		--output "$output" "$url" 2> "$WORK/curl-error.log"
+}
+
+fetch() {
+	local url=$1 output=$2 limit=$3 timeout=$4
+	curl_fetch "$url" "$output" "$limit" "$timeout" && return 0
+	[ -n "$PROXY_PREFIX" ] || return 1
+	rm -f "$output"
+	curl_fetch "${PROXY_PREFIX}${url}" "$output" "$limit" "$timeout"
 }
 
 read_release() {
@@ -213,6 +240,9 @@ check_release() {
 				write_state ready '在线检查失败；已下载完成的固件已重新校验，可更新。'
 				return 0
 			fi
+		fi
+		if [ -n "$PROXY_PREFIX" ]; then
+			fail '无法获取 GitHub Release，直连和备用代理均失败，请检查联网、代理地址或 API 限流后重试。'
 		fi
 		fail '无法获取 GitHub Release，请检查联网、TLS 时间或 API 限流后重试。'
 	fi
@@ -361,6 +391,9 @@ download_image() {
 	write_state downloading '正在下载固件…'
 	fetch "$ASSET_URL" "$IMAGE.part" "$ASSET_SIZE" 900 || {
 		rm -f "$IMAGE.part"
+		if [ -n "$PROXY_PREFIX" ]; then
+			fail '固件下载失败，直连和备用代理均失败，请检查网络后重试。'
+		fi
 		fail '固件下载失败，请检查网络后重试。'
 	}
 	mv -f "$IMAGE.part" "$IMAGE" || fail '无法保存下载的固件。'
@@ -470,6 +503,7 @@ status() {
 	json_add_int updated_at "${updated:-0}"
 	json_add_boolean busy "$busy"
 	json_add_boolean allow_backup "${backup:-0}"
+	json_add_string proxy_prefix "$PROXY_PREFIX"
 	json_add_boolean has_update "$has_update"
 	json_add_boolean download_ready "$download_ready"
 	json_add_string version_status "$VERSION_STATUS"
@@ -518,9 +552,36 @@ start_job() {
 	json_dump
 }
 
+set_proxy() {
+	local value=$1
+	command -v uci >/dev/null 2>&1 || reply_error '系统缺少 uci，无法保存代理配置。'
+	valid_proxy_prefix "$value" || reply_error '代理前缀必须以 https:// 开头，且只能包含 URL 安全字符。'
+	case "$value" in ''|*/) ;; *) value=$value/ ;; esac
+	if [ ! -f /etc/config/xwrt-ota ]; then
+		printf "%s\n" "config xwrt-ota 'main'" > /etc/config/xwrt-ota || reply_error '无法创建代理配置文件。'
+	fi
+	if [ -n "$value" ]; then
+		uci -q set "xwrt-ota.main.proxy_prefix=$value" || reply_error '无法保存代理前缀。'
+	else
+		uci -q delete xwrt-ota.main.proxy_prefix 2>/dev/null || true
+	fi
+	uci -q commit xwrt-ota || reply_error '无法提交代理配置。'
+	PROXY_PREFIX=$value
+	json_init
+	json_add_boolean saved 1
+	json_add_string proxy_prefix "$value"
+	json_dump
+}
+
+load_proxy_config
+
 case "$1" in
 	status) status ;;
 	check|download) [ "$#" = 1 ] || reply_error '参数无效。'; start_job "$1" ;;
+	set-proxy)
+		[ "$#" = 2 ] || reply_error '参数无效。'
+		set_proxy "$2"
+		;;
 	upgrade)
 		[ "$#" = 3 ] || reply_error '必须指定保留配置选项和固件 SHA256。'
 		valid_hash "$3" || reply_error '固件 SHA256 参数无效。'
@@ -550,5 +611,5 @@ case "$1" in
 			*) reply_error '无效的后台任务。' ;;
 		esac
 		;;
-	*) reply_error '用法：xwrt-ota status|check|download|clean 或 upgrade <0|1> <SHA256>' ;;
+	*) reply_error '用法：xwrt-ota status|check|download|clean|set-proxy <前缀> 或 upgrade <0|1> <SHA256>' ;;
 esac

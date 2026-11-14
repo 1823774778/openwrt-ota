@@ -116,6 +116,14 @@ const styles = `
   overflow-wrap: anywhere;
 }
 
+.xwrt-ota .cbi-value {
+  align-items: baseline;
+}
+
+.xwrt-ota .cbi-value-title {
+  float: none;
+}
+
 .xwrt-ota .cbi-value-description {
   margin-inline-start: 0;
   padding-inline-start: 0;
@@ -445,10 +453,10 @@ return view.extend({
   render(data) {
     this.facts = {};
     const fact = (key, label) => {
-      this.facts[key] = E('div', { class: 'cbi-value-field' }, '—');
+      this.facts[key] = E('div', {}, '—');
       return E('div', { class: 'cbi-value' }, [
         E('label', { class: 'cbi-value-title' }, label),
-        this.facts[key],
+        E('div', { class: 'cbi-value-field' }, [this.facts[key]]),
       ]);
     };
 
@@ -516,9 +524,11 @@ return view.extend({
           E('div', { class: 'cbi-value' }, [
             E('label', { class: 'cbi-value-title' }, '状态'),
             E('div', { class: 'cbi-value-field' }, [
-              this.statusPill,
-              ' ',
-              this.statusNode,
+              E('div', {}, [
+                this.statusPill,
+                ' ',
+                this.statusNode,
+              ]),
               this.versionHint,
             ]),
           ]),

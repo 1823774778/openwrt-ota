@@ -9,3 +9,6 @@ dist/
 # local build artifacts
 *.apk
 *.apk.sha256
+
+# user uploads
+.uploads/

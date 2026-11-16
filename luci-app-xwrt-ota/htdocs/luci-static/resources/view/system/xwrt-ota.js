@@ -145,21 +145,53 @@ const styles = `
 }
 
 .xwrt-ota-proxy {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 28rem) auto;
+  justify-content: start;
   align-items: center;
   gap: 8px;
 }
 
-.xwrt-ota-proxy > input {
-  flex: 1 1 18rem;
+.xwrt-ota .xwrt-ota-proxy > input {
+  width: 100%;
   min-width: 0;
+  max-width: none;
+}
+
+.xwrt-ota-proxy > button {
+  flex: none;
+  justify-self: start;
+}
+
+@media (max-width: 560px) {
+  .xwrt-ota .cbi-value {
+    display: block;
+  }
+
+  .xwrt-ota .cbi-value > .cbi-value-title {
+    display: block;
+    width: auto;
+    max-width: none;
+    padding: 0 0 4px;
+    text-align: start;
+    float: none;
+  }
+
+  .xwrt-ota .cbi-value > .cbi-value-field {
+    display: block;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .xwrt-ota-proxy {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .xwrt-ota-progress-meta {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 16px;
   flex-wrap: wrap;
   margin-top: 8px;
   font-size: 12.5px;

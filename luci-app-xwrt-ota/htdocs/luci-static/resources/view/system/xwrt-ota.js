@@ -250,7 +250,7 @@ return view.extend({
       await runHelper(['set-proxy', value]);
       this.proxyDirty = false;
       ui.addNotification(null, E('p', {},
-        value ? '备用代理前缀已保存。' : '备用代理前缀已清除。'), 'info');
+        value ? '下载代理前缀已保存。' : '已留空，固件下载将直连 GitHub。'), 'info');
       await this.refresh();
     } catch (error) {
       this.reportError(error);
@@ -499,7 +499,7 @@ return view.extend({
     this.proxyInput = E('input', {
       type: 'text',
       class: 'cbi-input-text',
-      placeholder: 'https://gh-proxy.com/',
+      placeholder: 'https://ghfast.top/',
       maxlength: '200',
       disabled: isReadonly,
     });
@@ -548,14 +548,14 @@ return view.extend({
         E('h3', {}, '更新源'),
         E('div', { class: 'cbi-section-node' }, [
           E('div', { class: 'cbi-value' }, [
-            E('label', { class: 'cbi-value-title' }, '备用代理前缀'),
+            E('label', { class: 'cbi-value-title' }, '下载代理前缀'),
             E('div', { class: 'cbi-value-field' }, [
               E('div', { class: 'xwrt-ota-proxy' }, [
                 this.proxyInput,
                 this.proxyButton,
               ]),
               E('div', { class: 'cbi-value-description' },
-                '留空时仅直连 GitHub；填写后仅在直连失败时自动回退，例如 https://gh-proxy.com/。代理属于第三方，可能查看或改写更新流量，请只使用可信地址。'),
+                '留空时固件直连 GitHub；填写后固件和校验文件直接通过该前缀下载，例如 https://ghfast.top/。API 检查仍直连 GitHub。代理属于第三方，可能查看或改写下载内容，请只使用可信地址。'),
             ]),
           ]),
         ]),

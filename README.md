@@ -47,18 +47,18 @@ rm -f /tmp/luci-indexcache* /tmp/luci-modulecache/*
 
 后端会串行执行更新任务，浏览器关闭后下载可继续。异常中断留下任务锁时，重启路由器会清除内存中的临时状态，再重新检查更新。出现错误时可查看 `/tmp/xwrt-ota/worker.log`、`curl-error.log`、`validation.log` 和 `upgrade.log`。
 
-## 备用代理（可选）
+## 下载代理（可选）
 
-默认只直连 GitHub。如果路由器访问 GitHub 困难，可在页面“更新源 → 备用代理前缀”填写路径式代理前缀，例如 `https://gh-proxy.com/`。保存后，只有在直连检查或下载失败时才会用该前缀重试（即 `https://gh-proxy.com/https://api.github.com/...`）；留空即关闭。
+默认使用 `https://ghfast.top/` 作为下载代理前缀：固件和校验文件会直接通过 `https://ghfast.top/https://github.com/...` 下载，GitHub API 检查仍直连。把前缀留空即改为固件直连下载。
 
-也可以用 UCI 直接配置：
+可在页面“更新源 → 下载代理前缀”修改，也可以用 UCI：
 
 ```sh
-uci set xwrt-ota.main.proxy_prefix='https://gh-proxy.com/'
+uci set xwrt-ota.main.proxy_prefix='https://ghfast.top/'
 uci commit xwrt-ota
 ```
 
-代理属于第三方，会终止 TLS，可能查看或改写 API 响应与固件；SHA256 同样来自该响应，无法防御恶意代理。请只使用可信代理，或保持留空。
+代理属于第三方，会终止 TLS，可能查看或改写下载内容；SHA256 仍会校验，但摘要同样经过该代理。请只使用可信代理，或留空改为直连。
 
 ## 源码和构建
 
@@ -75,6 +75,6 @@ python3 scripts/build-apk.py --apk /path/to/apk
 
 如需以后预装到固件，可将插件目录复制到 OpenWrt 源码的 `package/`，选择 `CONFIG_PACKAGE_luci-app-xwrt-ota=y` 后按固件正常流程编译。
 
-1.2.4 的页面采用 LuCI 原生布局（`cbi-map`、`cbi-section`、`cbi-value`、`cbi-progressbar`），配色取主题通用变量并在缺失时回退到中性色，因此会跟随固件当前主题（Bootstrap、Material、Argon、Vantage 等）自动变化，浅色与深色模式无需单独适配。已在加载真实 Bootstrap、Material、Argon 主题样式的隔离页面中验证分区卡片、标签对齐、原生进度条和状态徽标布局，以及自动检查、同版本置灰、安装确认、无法判断版本和只读权限。后端新增可选的备用代理前缀（默认关闭，仅在直连失败时回退），其余后端逻辑与 1.1.0 相同，仅版本号和 User-Agent 变化，沿用此前真实 BusyBox ash + OpenWrt jshn 的 41 项隔离检查（含切页缓存复用，浏览器实测固件下载请求仍为 1 次）。没有为本次修改自动构建 APK，需按上述步骤手动运行工作流。
+1.2.4 的页面采用 LuCI 原生布局（`cbi-map`、`cbi-section`、`cbi-value`、`cbi-progressbar`），配色取主题通用变量并在缺失时回退到中性色，因此会跟随固件当前主题（Bootstrap、Material、Argon、Vantage 等）自动变化，浅色与深色模式无需单独适配。已在加载真实 Bootstrap、Material、Argon 主题样式的隔离页面中验证分区卡片、标签对齐、原生进度条和状态徽标布局，以及自动检查、同版本置灰、安装确认、无法判断版本和只读权限。后端新增可选的下载代理前缀（默认 `https://ghfast.top/`，留空则直连；仅用于固件和校验文件下载），其余后端逻辑与 1.1.0 相同，仅版本号和 User-Agent 变化，沿用此前真实 BusyBox ash + OpenWrt jshn 的 41 项隔离检查（含切页缓存复用，浏览器实测固件下载请求仍为 1 次）。没有为本次修改自动构建 APK，需按上述步骤手动运行工作流。
 
 此前版本还完成了 APK 完整性、解包一致性、隔离根安装/卸载及安装脚本执行检查。真实固件的软件包清单包含全部依赖。GitHub 匿名 API 配额耗尽时会报告网络/API 限流错误。没有连接实体路由器执行刷机，设备上的实际安装、闪存写入和重启仍需实机验证。

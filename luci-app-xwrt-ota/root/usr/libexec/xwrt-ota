@@ -15,7 +15,7 @@ LOCK=$WORK/lock
 SELF=/usr/libexec/xwrt-ota
 JSHN=/usr/share/libubox/jshn.sh
 OWN_LOCK=0
-PROXY_PREFIX=''
+PROXY_PREFIX='https://ghfast.top/'
 BOARD='' MODEL='' TARGET='' NAME='' NOTES='' PUBLISHED=''
 DISTRIBUTION='' VERSION='' REVISION='' DESCRIPTION=''
 CURRENT_BUILD_TIME='' LATEST_BUILD_TIME='' VERSION_STATUS=unknown
@@ -165,9 +165,9 @@ valid_proxy_prefix() {
 }
 
 load_proxy_config() {
-	local value=''
+	local value=$PROXY_PREFIX
 	if command -v uci >/dev/null 2>&1; then
-		value=$(uci -q get xwrt-ota.main.proxy_prefix 2>/dev/null) || value=''
+		value=$(uci -q get xwrt-ota.main.proxy_prefix 2>/dev/null) || value=$PROXY_PREFIX
 	fi
 	valid_proxy_prefix "$value" || value=''
 	case "$value" in ''|*/) ;; *) value=$value/ ;; esac
@@ -195,10 +195,16 @@ curl_fetch() {
 
 fetch() {
 	local url=$1 output=$2 limit=$3 timeout=$4
-	curl_fetch "$url" "$output" "$limit" "$timeout" && return 0
-	[ -n "$PROXY_PREFIX" ] || return 1
-	rm -f "$output"
-	curl_fetch "${PROXY_PREFIX}${url}" "$output" "$limit" "$timeout"
+	curl_fetch "$url" "$output" "$limit" "$timeout"
+}
+
+fetch_asset() {
+	local url=$1 output=$2 limit=$3 timeout=$4
+	if [ -n "$PROXY_PREFIX" ]; then
+		curl_fetch "${PROXY_PREFIX}${url}" "$output" "$limit" "$timeout"
+		return
+	fi
+	curl_fetch "$url" "$output" "$limit" "$timeout"
 }
 
 read_release() {
@@ -241,9 +247,6 @@ check_release() {
 				return 0
 			fi
 		fi
-		if [ -n "$PROXY_PREFIX" ]; then
-			fail '无法获取 GitHub Release，直连和备用代理均失败，请检查联网、代理地址或 API 限流后重试。'
-		fi
 		fail '无法获取 GitHub Release，请检查联网、TLS 时间或 API 限流后重试。'
 	fi
 	json_load_file "$WORK/github.json" || fail 'GitHub 返回了无效的 JSON。'
@@ -284,7 +287,7 @@ check_release() {
 	[ "$matches" = 1 ] || fail '最新版本中未找到唯一匹配本机的 sysupgrade.bin，请查看 Release 附件。'
 	if ! valid_hash "$SHA256"; then
 		[ -n "$sums_url" ] || fail 'Release 没有附件 SHA256 或 sha256sums，无法安全升级。'
-		fetch "$sums_url" "$WORK/sha256sums" 262144 45 || fail '无法下载 SHA256 校验文件。'
+		fetch_asset "$sums_url" "$WORK/sha256sums" 262144 45 || fail '无法下载 SHA256 校验文件。'
 		while read -r sums_hash sum_name sum_extra; do
 			sum_name=${sum_name#\*}
 			sum_name=${sum_name#./}
@@ -389,10 +392,10 @@ download_image() {
 	[ "$free_kb" -gt "$((ASSET_SIZE / 1024 + 16384))" ] || fail '临时空间不足，需要固件大小加至少 16 MiB 的可用空间。'
 	rm -f "$IMAGE_META" "$IMAGE.part"
 	write_state downloading '正在下载固件…'
-	fetch "$ASSET_URL" "$IMAGE.part" "$ASSET_SIZE" 900 || {
+	fetch_asset "$ASSET_URL" "$IMAGE.part" "$ASSET_SIZE" 900 || {
 		rm -f "$IMAGE.part"
 		if [ -n "$PROXY_PREFIX" ]; then
-			fail '固件下载失败，直连和备用代理均失败，请检查网络后重试。'
+			fail '固件下载失败，请检查下载代理或网络后重试。'
 		fi
 		fail '固件下载失败，请检查网络后重试。'
 	}
@@ -558,13 +561,9 @@ set_proxy() {
 	valid_proxy_prefix "$value" || reply_error '代理前缀必须以 https:// 开头，且只能包含 URL 安全字符。'
 	case "$value" in ''|*/) ;; *) value=$value/ ;; esac
 	if [ ! -f /etc/config/xwrt-ota ]; then
-		printf "%s\n" "config xwrt-ota 'main'" > /etc/config/xwrt-ota || reply_error '无法创建代理配置文件。'
+		printf "%s\n" "config xwrt-ota 'main'" "	option proxy_prefix 'https://ghfast.top/'" > /etc/config/xwrt-ota || reply_error '无法创建代理配置文件。'
 	fi
-	if [ -n "$value" ]; then
-		uci -q set "xwrt-ota.main.proxy_prefix=$value" || reply_error '无法保存代理前缀。'
-	else
-		uci -q delete xwrt-ota.main.proxy_prefix 2>/dev/null || true
-	fi
+	uci -q set "xwrt-ota.main.proxy_prefix=$value" || reply_error '无法保存代理前缀。'
 	uci -q commit xwrt-ota || reply_error '无法提交代理配置。'
 	PROXY_PREFIX=$value
 	json_init

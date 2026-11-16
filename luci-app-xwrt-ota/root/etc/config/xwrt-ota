@@ -1,2 +1,2 @@
 config xwrt-ota 'main'
-	option proxy_prefix ''
+	option proxy_prefix 'https://ghfast.top/'

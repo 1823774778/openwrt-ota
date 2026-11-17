@@ -513,8 +513,8 @@ return view.extend({
 
     const page = E('div', { class: 'cbi-map xwrt-ota' }, [
       E('style', {}, styles),
-      E('h2', {}, 'XWRT 在线更新'),
-      E('div', { class: 'cbi-map-descr' }, '自动匹配当前设备的XWRT正式版固件'),
+      E('h2', {}, '在线更新'),
+      E('div', { class: 'cbi-map-descr' }, '自动匹配当前设备的正式版固件'),
       E('fieldset', { class: 'cbi-section' }, [
         E('h3', {}, '设备与版本'),
         E('div', { class: 'cbi-section-node' }, [

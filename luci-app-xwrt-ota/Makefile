@@ -5,7 +5,7 @@ PKG_VERSION:=1.2.4
 PKG_RELEASE:=1
 PKG_LICENSE:=MIT
 
-LUCI_TITLE:=XWRT GitHub Release OTA updater
+LUCI_TITLE:=YkingWrt GitHub Release OTA updater
 LUCI_DEPENDS:=+luci-base +rpcd-mod-file +curl +ca-bundle +jshn
 LUCI_PKGARCH:=all
 

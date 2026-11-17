@@ -131,13 +131,13 @@ jobs:
           run_id = os.environ['GITHUB_RUN_ID']
           attempt = os.environ['GITHUB_RUN_ATTEMPT']
           tag = f'{name}-v{version}-build-{run_id}.{attempt}'
-          title = f'XWRT 在线更新插件 {version} · {timestamp:%Y-%m-%d %H:%M:%S} (UTC+8)'
+          title = f'在线更新插件 {version} · {timestamp:%Y-%m-%d %H:%M:%S} (UTC+8)'
           run_url = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run_id}"
           notes = [
               '## 插件作用和用途',
               '',
-              '为 XWRT 路由器的 LuCI 管理后台增加“系统 → XWRT 在线更新”页面，'
-              '从 https://github.com/1823774778/XWRT 的最新正式版 Release 获取固件，'
+              '为 YkingWrt 路由器的 LuCI 管理后台增加“系统 → 在线更新”页面，'
+              '从 https://github.com/1823774778/YkingWrt 的最新正式版 Release 获取固件，'
               '进入页面即自动检查，以概览固件构建日期时间判断是否有新版本，支持下载、校验和手动确认升级。',
               '',
               '- 自动识别雅典娜或亚瑟，匹配对应的 sysupgrade.bin，不使用 factory.bin。',
@@ -152,7 +152,7 @@ jobs:
               '## 适配范围',
               '',
               '- 京东云雅典娜 RE-CS-02、京东云亚瑟 RE-SS-01。',
-              '- qualcommax/ipq60xx 平台，使用 APK 和现代 JavaScript LuCI 的 XWRT。',
+              '- qualcommax/ipq60xx 平台，使用 APK 和现代 JavaScript LuCI 的 YkingWrt。',
               '- 本 APK 为 noarch 插件安装包；它不包含路由器固件。',
               '',
               '## 安装和使用',
@@ -163,7 +163,7 @@ jobs:
               f'apk add --allow-untrusted /tmp/{package.name}',
               '```',
               '',
-              '重新登录 LuCI，进入“系统 → XWRT 在线更新”即自动检查。发现新版后点击“下载版本”，校验完成后点击“安装更新”并确认。',
+              '重新登录 LuCI，进入“系统 → 在线更新”即自动检查。发现新版后点击“下载版本”，校验完成后点击“安装更新”并确认。',
               '旧固件缺少完整构建时间时会提示无法判断；缓存保存在 /tmp，切换页面不会清理，路由器重启后需重新下载。',
               '依赖由 APK 自动处理：luci-base、rpcd-mod-file、curl、ca-bundle、jshn。'
               '路由器需要能够通过 HTTPS 访问 GitHub。',

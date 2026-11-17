@@ -1,6 +1,6 @@
 {
   "admin/system/xwrt-ota": {
-    "title": "XWRT 在线更新",
+    "title": "在线更新",
     "order": 75,
     "action": {
       "type": "view",

@@ -1,6 +1,6 @@
 # openwrt-ota
 
-用于 XWRT 的 LuCI 在线固件升级插件，从 `1823774778/XWRT` 的 GitHub 最新正式版 Release 获取固件。
+用于 YkingWrt 的 LuCI 在线固件升级插件，从 `1823774778/YkingWrt` 的 GitHub 最新正式版 Release 获取固件。
 
 ## 安装
 
@@ -10,7 +10,7 @@
 apk add --allow-untrusted /tmp/luci-app-xwrt-ota-1.2.4-r1.apk
 ```
 
-随后退出并重新登录 LuCI，在 **系统 → XWRT 在线更新** 中使用。依赖由 APK 自动处理：`luci-base`、`rpcd-mod-file`、`curl`、`ca-bundle`、`jshn`。设备须能通过 HTTPS 访问 GitHub API 和 Release 下载地址。
+随后退出并重新登录 LuCI，在 **系统 → 在线更新** 中使用。依赖由 APK 自动处理：`luci-base`、`rpcd-mod-file`、`curl`、`ca-bundle`、`jshn`。设备须能通过 HTTPS 访问 GitHub API 和 Release 下载地址。
 
 如果安装后没有出现菜单，可执行：
 
@@ -25,16 +25,16 @@ rm -f /tmp/luci-indexcache* /tmp/luci-modulecache/*
 
 - 京东云雅典娜 RE-CS-02：`jdcloud,re-cs-02`。
 - 京东云亚瑟 RE-SS-01：`jdcloud,re-ss-01`。
-- 平台：`qualcommax/ipq60xx`，使用现代 JavaScript LuCI 和 APK 的 XWRT。
-- 基准：`1823774778/XWRT` 的 ImmortalWrt `owrt` 构建环境，APK 工具版本 3.0.5。
+- 平台：`qualcommax/ipq60xx`，使用现代 JavaScript LuCI 和 APK 的 YkingWrt。
+- 基准：`1823774778/YkingWrt` 的 ImmortalWrt `owrt` 构建环境，APK 工具版本 3.0.5。
 
 本安装包没有原生二进制，不依赖这两款设备之间的 CPU 差别；未适配旧版 Lua LuCI、opkg/IPK 系统、x86 和 Rockchip 固件。
 
 ## 更新流程
 
-1. **进入页面自动检查**：读取 `/repos/1823774778/XWRT/releases/latest`；已有后台任务时跟随进度。
+1. **进入页面自动检查**：读取 `/repos/1823774778/YkingWrt/releases/latest`；已有后台任务时跟随进度。
 2. **比较构建日期时间**：优先读取概览版本标签同源的 `/etc/xwrt-build-time`，兼容解析系统 `release.description` 中的完整时间；与 Release 标签中的北京时间精确比较到秒。相同或本机更新时提示“当前为最新版本”，只有远端更新时才允许下载。旧固件没有完整构建时间时提示“无法判断版本”，不使用源码 revision、系统当前时间或发布时间代替。
-3. **匹配设备**：只选择本机对应的 `xwrt-*-qualcommax-ipq60xx-<profile>-squashfs-sysupgrade.bin`，兼容末尾追加 `-YYYY-MM-DD` 或 `-YYYY-MM-DD-HH.MM.SS` 的文件名；不使用 `factory.bin`。缺少或匹配到多个固件时停止。
+3. **匹配设备**：只选择本机对应的 `*qualcommax-ipq60xx-<profile>-squashfs-sysupgrade*.bin`，不使用 `factory.bin`。缺少或匹配到多个固件时停止。
 4. **下载并校验**：后台下载到 `/tmp/xwrt-ota`，核对文件大小、GitHub 附件 SHA256（缺失时读取同一 Release 的 `sha256sums`）和系统设备兼容性。已有相同大小、SHA256 的完整缓存时直接重新校验复用，不再下载；并发请求也不会发起第二次下载。
 5. **安装更新**：二次确认并选择是否保留配置；刷写前重新核对版本和 SHA256，再运行原生 `sysupgrade --test`，通过后调用 `sysupgrade`。不提供强制刷写选项。
 6. **重连**：等待设备重启；不保留配置时默认尝试 `192.168.10.1` 和 `xwrt.lan`。

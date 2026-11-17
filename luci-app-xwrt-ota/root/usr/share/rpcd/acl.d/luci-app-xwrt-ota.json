@@ -1,6 +1,6 @@
 {
   "luci-app-xwrt-ota": {
-    "description": "XWRT release-based firmware updates",
+    "description": "YkingWrt release-based firmware updates",
     "read": {
       "ubus": {
         "file": ["exec"]

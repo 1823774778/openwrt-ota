@@ -4,7 +4,7 @@
 umask 077
 export LC_ALL=C
 
-REPOSITORY=1823774778/XWRT
+REPOSITORY=1823774778/YkingWrt
 WORK=/tmp/xwrt-ota
 STATE=$WORK/state.json
 RELEASE=$WORK/release.json
@@ -88,8 +88,8 @@ build_time() {
 				printf "%s-%s-%s %s:%s:%s\n", substr(value, 1, 4), substr(value, 6, 2), substr(value, 9, 2), substr(value, 12, 2), substr(value, 15, 2), substr(value, 18, 2)
 				exit
 			}
-			if (match(line, /XWRT-[0-9][0-9]:[0-9][0-9]:[0-9][0-9]-[0-9][0-9]:[0-9][0-9]:[0-9][0-9]/)) {
-				value = substr(line, RSTART + 5, 17)
+			if (match(line, /[0-9][0-9]:[0-9][0-9]:[0-9][0-9]-[0-9][0-9]:[0-9][0-9]:[0-9][0-9]/)) {
+				value = substr(line, RSTART, 17)
 				printf "20%s-%s-%s %s:%s:%s\n", substr(value, 1, 2), substr(value, 4, 2), substr(value, 7, 2), substr(value, 10, 2), substr(value, 13, 2), substr(value, 16, 2)
 				exit
 			}
@@ -117,7 +117,7 @@ read_board() {
 		read -r stamp < "$BUILD_TIME_FILE"
 		CURRENT_BUILD_TIME=$(build_time "$stamp")
 		if [ -n "$CURRENT_BUILD_TIME" ]; then
-			label=$(date -u -d "$CURRENT_BUILD_TIME" '+XWRT-%y.%m.%d-%H.%M.%S')
+			label=$(date -u -d "$CURRENT_BUILD_TIME" '+%y.%m.%d-%H.%M.%S')
 			DESCRIPTION="${DESCRIPTION:-$DISTRIBUTION $VERSION $REVISION} / $label"
 		fi
 	fi
@@ -232,7 +232,7 @@ read_release() {
 }
 
 check_release() {
-	local keys key draft prerelease filename url size digest tail matches=0
+	local keys key draft prerelease filename url size digest matches=0
 	local sums_url='' sums_hash='' sum_count=0 sum_name sum_extra release_rev
 	load_board
 	write_state checking '正在读取 GitHub 最新正式版…'
@@ -268,11 +268,7 @@ check_release() {
 		json_get_var size size
 		json_get_var digest digest
 		case "$filename" in
-			xwrt-*-qualcommax-ipq60xx-"$PROFILE"-squashfs-sysupgrade*.bin)
-				tail=${filename##*-squashfs-sysupgrade}
-				case "$tail" in .bin|-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].bin|-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9].[0-9][0-9].[0-9][0-9].bin) ;;
-					*) json_select ..; continue ;;
-				esac
+			*qualcommax-ipq60xx-"$PROFILE"-squashfs-sysupgrade*.bin)
 				valid_asset_url "$url" || fail 'GitHub 固件附件地址无效。'
 				ASSET_NAME=$filename ASSET_URL=$url ASSET_SIZE=$size
 				SHA256=${digest#sha256:}
@@ -302,8 +298,13 @@ check_release() {
 	if [ "$ASSET_SIZE" -le 1048576 ] || [ "$ASSET_SIZE" -gt 268435456 ]; then
 		fail '固件大小超出允许范围。'
 	fi
-	release_rev=${ASSET_NAME#xwrt-}
-	SOURCE_REVISION=${release_rev%%-qualcommax-*}
+	case "$ASSET_NAME" in
+		xwrt-*-qualcommax-*)
+			release_rev=${ASSET_NAME#xwrt-}
+			SOURCE_REVISION=${release_rev%%-qualcommax-*}
+			;;
+		*) SOURCE_REVISION='' ;;
+	esac
 	LATEST_BUILD_TIME=$(build_time "$TAG")
 	[ -n "$LATEST_BUILD_TIME" ] || LATEST_BUILD_TIME=$(build_time "$NAME")
 	[ -n "$LATEST_BUILD_TIME" ] || LATEST_BUILD_TIME=$(build_time "$NOTES")

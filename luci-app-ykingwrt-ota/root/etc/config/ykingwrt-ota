@@ -1,2 +1,2 @@
-config xwrt-ota 'main'
+config ykingwrt-ota 'main'
 	option proxy_prefix 'https://ghfast.top/'

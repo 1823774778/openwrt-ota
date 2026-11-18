@@ -5,14 +5,13 @@ umask 077
 export LC_ALL=C
 
 REPOSITORY=1823774778/YkingWrt
-WORK=/tmp/xwrt-ota
+WORK=/tmp/ykingwrt-ota
 STATE=$WORK/state.json
 RELEASE=$WORK/release.json
 IMAGE=$WORK/firmware.bin
 IMAGE_META=$WORK/image.json
-BUILD_TIME_FILE=/etc/xwrt-build-time
 LOCK=$WORK/lock
-SELF=/usr/libexec/xwrt-ota
+SELF=/usr/libexec/ykingwrt-ota
 JSHN=/usr/share/libubox/jshn.sh
 OWN_LOCK=0
 PROXY_PREFIX='https://ghfast.top/'
@@ -101,7 +100,7 @@ build_time() {
 }
 
 read_board() {
-	local info stamp label
+	local info stamp build_file file_description file_time luci_info luci_branch luci_revision luci_label overview_file
 	info=$(ubus call system board 2>/dev/null) || return 1
 	json_load "$info" || return 1
 	json_get_var BOARD board_name
@@ -112,16 +111,64 @@ read_board() {
 	json_get_var REVISION revision
 	json_get_var DESCRIPTION description
 	json_get_var TARGET target
-	CURRENT_BUILD_TIME=''
-	if [ -r "$BUILD_TIME_FILE" ]; then
-		read -r stamp < "$BUILD_TIME_FILE"
-		CURRENT_BUILD_TIME=$(build_time "$stamp")
-		if [ -n "$CURRENT_BUILD_TIME" ]; then
-			label=$(date -u -d "$CURRENT_BUILD_TIME" '+%y.%m.%d-%H.%M.%S')
-			DESCRIPTION="${DESCRIPTION:-$DISTRIBUTION $VERSION $REVISION} / $label"
+	CURRENT_BUILD_TIME=$(build_time "$DESCRIPTION")
+	if [ -z "$CURRENT_BUILD_TIME" ] && [ -r /etc/openwrt_release ]; then
+		# shellcheck disable=SC1091
+		. /etc/openwrt_release
+		file_description=${DISTRIB_DESCRIPTION:-}
+		if [ -n "$file_description" ]; then
+			file_time=$(build_time "$file_description")
+			if [ -n "$file_time" ]; then
+				DESCRIPTION=$file_description
+				CURRENT_BUILD_TIME=$file_time
+			elif [ "${#file_description}" -gt "${#DESCRIPTION}" ]; then
+				DESCRIPTION=$file_description
+			fi
 		fi
 	fi
-	[ -n "$CURRENT_BUILD_TIME" ] || CURRENT_BUILD_TIME=$(build_time "$DESCRIPTION")
+	if [ -z "$CURRENT_BUILD_TIME" ]; then
+		luci_info=$(ubus call luci getVersion 2>/dev/null) || luci_info=''
+		if [ -n "$luci_info" ]; then
+			json_load "$luci_info" && {
+				json_get_var luci_branch branch
+				json_get_var luci_revision revision
+				luci_label="${luci_branch:-LuCI} $luci_revision"
+				CURRENT_BUILD_TIME=$(build_time "$luci_label")
+				if [ -n "$luci_revision" ]; then
+					case "$DESCRIPTION" in
+						*"$luci_revision"*) ;;
+						*) DESCRIPTION="$DESCRIPTION / $luci_label" ;;
+					esac
+				fi
+			}
+		fi
+	fi
+	if [ -z "$CURRENT_BUILD_TIME" ]; then
+		for overview_file in /www/luci-static/resources/view/status/include/10_system.js /usr/lib/lua/luci/view/status/include/10_system.htm; do
+			[ -r "$overview_file" ] || continue
+			stamp=$(grep -Eo '[0-9]+-[0-9][0-9]\.[0-9][0-9]\.[0-9][0-9]-[0-9][0-9]\.[0-9][0-9]\.[0-9][0-9]' "$overview_file" | head -n 1)
+			[ -n "$stamp" ] || continue
+			CURRENT_BUILD_TIME=$(build_time "$stamp")
+			[ -n "$CURRENT_BUILD_TIME" ] || continue
+			case "$DESCRIPTION" in
+				*"$stamp"*) ;;
+				*) DESCRIPTION="$DESCRIPTION / $stamp" ;;
+			esac
+			break
+		done
+	fi
+	if [ -z "$CURRENT_BUILD_TIME" ]; then
+		for build_file in /etc/*build-time /etc/*build_time /etc/*buildtime; do
+			[ -r "$build_file" ] || continue
+			read -r stamp < "$build_file"
+			case "$stamp" in
+				[0-9][0-9].[0-9][0-9].[0-9][0-9]-[0-9][0-9].[0-9][0-9].[0-9][0-9]) continue ;;
+			esac
+			if CURRENT_BUILD_TIME=$(build_time "$stamp") && [ -n "$CURRENT_BUILD_TIME" ]; then
+				break
+			fi
+		done
+	fi
 	return 0
 }
 
@@ -167,7 +214,7 @@ valid_proxy_prefix() {
 load_proxy_config() {
 	local value=$PROXY_PREFIX
 	if command -v uci >/dev/null 2>&1; then
-		value=$(uci -q get xwrt-ota.main.proxy_prefix 2>/dev/null) || value=$PROXY_PREFIX
+		value=$(uci -q get ykingwrt-ota.main.proxy_prefix 2>/dev/null) || value=$PROXY_PREFIX
 	fi
 	valid_proxy_prefix "$value" || value=''
 	case "$value" in ''|*/) ;; *) value=$value/ ;; esac
@@ -188,7 +235,7 @@ curl_fetch() {
 		--proto '=https' --proto-redir '=https' --tlsv1.2 \
 		--connect-timeout 15 --max-time "$timeout" --max-redirs 5 \
 		--max-filesize "$limit" --speed-limit 1024 --speed-time 45 \
-		--user-agent 'luci-app-xwrt-ota/1.2.4' \
+		--user-agent 'luci-app-ykingwrt-ota/1.2.4' \
 		--header 'Accept: application/vnd.github+json' \
 		--output "$output" "$url" 2> "$WORK/curl-error.log"
 }
@@ -299,8 +346,8 @@ check_release() {
 		fail '固件大小超出允许范围。'
 	fi
 	case "$ASSET_NAME" in
-		xwrt-*-qualcommax-*)
-			release_rev=${ASSET_NAME#xwrt-}
+		ykingwrt-*-qualcommax-*)
+			release_rev=${ASSET_NAME#ykingwrt-}
 			SOURCE_REVISION=${release_rev%%-qualcommax-*}
 			;;
 		*) SOURCE_REVISION='' ;;
@@ -561,11 +608,11 @@ set_proxy() {
 	command -v uci >/dev/null 2>&1 || reply_error '系统缺少 uci，无法保存代理配置。'
 	valid_proxy_prefix "$value" || reply_error '代理前缀必须以 https:// 开头，且只能包含 URL 安全字符。'
 	case "$value" in ''|*/) ;; *) value=$value/ ;; esac
-	if [ ! -f /etc/config/xwrt-ota ]; then
-		printf "%s\n" "config xwrt-ota 'main'" "	option proxy_prefix 'https://ghfast.top/'" > /etc/config/xwrt-ota || reply_error '无法创建代理配置文件。'
+	if [ ! -f /etc/config/ykingwrt-ota ]; then
+		printf "%s\n" "config ykingwrt-ota 'main'" "	option proxy_prefix 'https://ghfast.top/'" > /etc/config/ykingwrt-ota || reply_error '无法创建代理配置文件。'
 	fi
-	uci -q set "xwrt-ota.main.proxy_prefix=$value" || reply_error '无法保存代理前缀。'
-	uci -q commit xwrt-ota || reply_error '无法提交代理配置。'
+	uci -q set "ykingwrt-ota.main.proxy_prefix=$value" || reply_error '无法保存代理前缀。'
+	uci -q commit ykingwrt-ota || reply_error '无法提交代理配置。'
 	PROXY_PREFIX=$value
 	json_init
 	json_add_boolean saved 1
@@ -611,5 +658,5 @@ case "$1" in
 			*) reply_error '无效的后台任务。' ;;
 		esac
 		;;
-	*) reply_error '用法：xwrt-ota status|check|download|clean|set-proxy <前缀> 或 upgrade <0|1> <SHA256>' ;;
+	*) reply_error '用法：ykingwrt-ota status|check|download|clean|set-proxy <前缀> 或 upgrade <0|1> <SHA256>' ;;
 esac

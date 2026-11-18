@@ -1,13 +1,13 @@
 {
-  "admin/system/xwrt-ota": {
+  "admin/system/ota": {
     "title": "在线更新",
     "order": 75,
     "action": {
       "type": "view",
-      "path": "system/xwrt-ota"
+      "path": "system/ota"
     },
     "depends": {
-      "acl": ["luci-app-xwrt-ota"]
+      "acl": ["luci-app-ykingwrt-ota"]
     }
   }
 }

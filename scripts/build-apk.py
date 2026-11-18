@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 
 
-NAME = "luci-app-xwrt-ota"
+NAME = "luci-app-ykingwrt-ota"
 VERSION = "1.2.4-r1"
 DEPENDENCIES = "luci-base rpcd-mod-file curl ca-bundle jshn"
 
@@ -28,12 +28,12 @@ def main():
     output = args.output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    with tempfile.TemporaryDirectory(prefix="xwrt-ota-apk-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="ykingwrt-ota-apk-") as temporary:
         temporary = Path(temporary)
         root = temporary / "root"
         shutil.copytree(source / "root", root)
         shutil.copytree(source / "htdocs", root / "www", dirs_exist_ok=True)
-        (root / "usr/libexec/xwrt-ota").chmod(0o755)
+        (root / "usr/libexec/ykingwrt-ota").chmod(0o755)
         package_files = sorted("/" + str(item.relative_to(root)) for item in root.rglob("*") if item.is_file())
         metadata = root / "lib/apk/packages"
         metadata.mkdir(parents=True)
@@ -49,7 +49,7 @@ def main():
         )
         post_install.chmod(0o755)
         for item in root.rglob("*"):
-            item.chmod(0o755 if item.is_dir() or item == root / "usr/libexec/xwrt-ota" else 0o644)
+            item.chmod(0o755 if item.is_dir() or item == root / "usr/libexec/ykingwrt-ota" else 0o644)
             os.utime(item, (0, 0))
         os.utime(root, (0, 0))
 
@@ -59,9 +59,9 @@ def main():
                 "--info", f"name:{NAME}",
                 "--info", f"version:{VERSION}",
                 "--info", "arch:noarch",
-                "--info", "description:XWRT GitHub Release OTA updater for JDCloud Athena and Arthur",
+                "--info", "description:YkingWrt GitHub Release OTA updater for JDCloud Athena and Arthur",
                 "--info", "license:MIT",
-                "--info", "url:https://github.com/1823774778/XWRT",
+                "--info", "url:https://github.com/1823774778/YkingWrt",
                 "--info", f"depends:{DEPENDENCIES}",
                 "--info", "tags:openwrt:section=luci",
                 "--script", f"post-install:{post_install}",

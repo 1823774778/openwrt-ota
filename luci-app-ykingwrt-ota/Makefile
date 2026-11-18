@@ -1,6 +1,6 @@
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=luci-app-xwrt-ota
+PKG_NAME:=luci-app-ykingwrt-ota
 PKG_VERSION:=1.2.4
 PKG_RELEASE:=1
 PKG_LICENSE:=MIT

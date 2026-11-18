@@ -37,9 +37,9 @@ jobs:
 
       - name: Check plugin syntax
         run: |
-          shellcheck -s ash luci-app-xwrt-ota/root/usr/libexec/xwrt-ota
-          node -e 'new Function(require("node:fs").readFileSync("luci-app-xwrt-ota/htdocs/luci-static/resources/view/system/xwrt-ota.js", "utf8"))'
-          python3 -c 'import ast, json; from pathlib import Path; ast.parse(Path("scripts/build-apk.py").read_text()); [json.loads(p.read_text()) for p in Path("luci-app-xwrt-ota/root/usr/share").rglob("*.json")]'
+          shellcheck -s ash luci-app-ykingwrt-ota/root/usr/libexec/ykingwrt-ota
+          node -e 'new Function(require("node:fs").readFileSync("luci-app-ykingwrt-ota/htdocs/luci-static/resources/view/system/ota.js", "utf8"))'
+          python3 -c 'import ast, json; from pathlib import Path; ast.parse(Path("scripts/build-apk.py").read_text()); [json.loads(p.read_text()) for p in Path("luci-app-ykingwrt-ota/root/usr/share").rglob("*.json")]'
 
       - name: Build pinned official apk-tools
         run: |
@@ -63,12 +63,12 @@ jobs:
 
       - name: Build independent APK
         run: |
-          export OUTPUT_DIR="$RUNNER_TEMP/xwrt-ota-output"
+          export OUTPUT_DIR="$RUNNER_TEMP/ykingwrt-ota-output"
           printf 'OUTPUT_DIR=%s\n' "$OUTPUT_DIR" >> "$GITHUB_ENV"
           mkdir -p "$OUTPUT_DIR"
           python3 scripts/build-apk.py \
             --apk "$RUNNER_TEMP/apk-tools/build/src/apk" \
-            --output "$OUTPUT_DIR/luci-app-xwrt-ota-1.2.4-r1.apk"
+            --output "$OUTPUT_DIR/luci-app-ykingwrt-ota-1.2.4-r1.apk"
 
       - name: Verify package payload and generate checksums
         run: |
@@ -76,17 +76,17 @@ jobs:
           mkdir -p "$RUNNER_TEMP/apk-payload"
           "$RUNNER_TEMP/apk-tools/build/src/apk" extract --allow-untrusted \
             --destination "$RUNNER_TEMP/apk-payload" \
-            "$OUTPUT_DIR/luci-app-xwrt-ota-1.2.4-r1.apk"
-          test -x "$RUNNER_TEMP/apk-payload/usr/libexec/xwrt-ota"
-          test -f "$RUNNER_TEMP/apk-payload/etc/config/xwrt-ota"
-          cmp luci-app-xwrt-ota/root/usr/libexec/xwrt-ota "$RUNNER_TEMP/apk-payload/usr/libexec/xwrt-ota"
-          cmp luci-app-xwrt-ota/htdocs/luci-static/resources/view/system/xwrt-ota.js "$RUNNER_TEMP/apk-payload/www/luci-static/resources/view/system/xwrt-ota.js"
-          python3 -c 'import hashlib, os; from pathlib import Path; output=Path(os.environ["OUTPUT_DIR"]); package=output/"luci-app-xwrt-ota-1.2.4-r1.apk"; (output/"sha256sums").write_text(hashlib.sha256(package.read_bytes()).hexdigest()+"  "+package.name+"\n")'
+            "$OUTPUT_DIR/luci-app-ykingwrt-ota-1.2.4-r1.apk"
+          test -x "$RUNNER_TEMP/apk-payload/usr/libexec/ykingwrt-ota"
+          test -f "$RUNNER_TEMP/apk-payload/etc/config/ykingwrt-ota"
+          cmp luci-app-ykingwrt-ota/root/usr/libexec/ykingwrt-ota "$RUNNER_TEMP/apk-payload/usr/libexec/ykingwrt-ota"
+          cmp luci-app-ykingwrt-ota/htdocs/luci-static/resources/view/system/ota.js "$RUNNER_TEMP/apk-payload/www/luci-static/resources/view/system/ota.js"
+          python3 -c 'import hashlib, os; from pathlib import Path; output=Path(os.environ["OUTPUT_DIR"]); package=output/"luci-app-ykingwrt-ota-1.2.4-r1.apk"; (output/"sha256sums").write_text(hashlib.sha256(package.read_bytes()).hexdigest()+"  "+package.name+"\n")'
 
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: luci-app-xwrt-ota-apk
+          name: luci-app-ykingwrt-ota-apk
           path: |
             ${{ env.OUTPUT_DIR }}/*.apk
             ${{ env.OUTPUT_DIR }}/sha256sums
@@ -104,7 +104,7 @@ jobs:
       - name: Download verified APK
         uses: actions/download-artifact@v4
         with:
-          name: luci-app-xwrt-ota-apk
+          name: luci-app-ykingwrt-ota-apk
           path: release-assets
 
       - name: Prepare plugin usage notes
@@ -125,7 +125,7 @@ jobs:
           checksum = hashlib.sha256(package.read_bytes()).hexdigest()
           if (assets / 'sha256sums').read_text().strip() != f'{checksum}  {package.name}':
               raise SystemExit('APK checksum does not match the build artifact')
-          name = 'luci-app-xwrt-ota'
+          name = 'luci-app-ykingwrt-ota'
           version = package.stem.removeprefix(f'{name}-')
           timestamp = datetime.now(ZoneInfo('Asia/Shanghai'))
           run_id = os.environ['GITHUB_RUN_ID']

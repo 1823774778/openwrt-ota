@@ -4,7 +4,7 @@
 'require ui';
 'require poll';
 
-const helper = '/usr/libexec/xwrt-ota';
+const helper = '/usr/libexec/ykingwrt-ota';
 const isReadonly = !L.hasViewPermission();
 const phases = {
   idle: '尚未检查',
@@ -40,25 +40,25 @@ const progressCopy = {
 };
 
 const styles = `
-.xwrt-ota {
-  --xwrt-accent: var(--primary-color-high, var(--primary, var(--v-accent-fill, #4f7cff)));
-  --xwrt-success: var(--success-color-high, var(--success, var(--v-ok, #16a34a)));
-  --xwrt-warning: var(--warning, var(--v-warn, #d97706));
-  --xwrt-danger: var(--error-color-high, var(--danger, var(--v-err, #dc2626)));
-  --xwrt-muted: rgba(127, 127, 127, 0.9);
-  --xwrt-muted: color-mix(in srgb, currentColor 66%, transparent);
-  --xwrt-line: rgba(127, 127, 127, 0.28);
-  --xwrt-line: color-mix(in srgb, currentColor 18%, transparent);
-  --xwrt-panel: rgba(127, 127, 127, 0.08);
-  --xwrt-panel: color-mix(in srgb, currentColor 7%, transparent);
+.ykingwrt-ota {
+  --ykingwrt-accent: var(--primary-color-high, var(--primary, var(--v-accent-fill, #4f7cff)));
+  --ykingwrt-success: var(--success-color-high, var(--success, var(--v-ok, #16a34a)));
+  --ykingwrt-warning: var(--warning, var(--v-warn, #d97706));
+  --ykingwrt-danger: var(--error-color-high, var(--danger, var(--v-err, #dc2626)));
+  --ykingwrt-muted: rgba(127, 127, 127, 0.9);
+  --ykingwrt-muted: color-mix(in srgb, currentColor 66%, transparent);
+  --ykingwrt-line: rgba(127, 127, 127, 0.28);
+  --ykingwrt-line: color-mix(in srgb, currentColor 18%, transparent);
+  --ykingwrt-panel: rgba(127, 127, 127, 0.08);
+  --ykingwrt-panel: color-mix(in srgb, currentColor 7%, transparent);
 }
 
-.xwrt-ota-pill {
+.ykingwrt-ota-pill {
   display: inline-block;
   padding: 1px 10px;
-  border: 1px solid var(--xwrt-line);
+  border: 1px solid var(--ykingwrt-line);
   border-radius: 999px;
-  background: var(--xwrt-panel);
+  background: var(--ykingwrt-panel);
   color: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -67,7 +67,7 @@ const styles = `
   vertical-align: 1px;
 }
 
-.xwrt-ota-pill::before {
+.ykingwrt-ota-pill::before {
   content: '';
   display: inline-block;
   width: 6px;
@@ -79,72 +79,72 @@ const styles = `
   vertical-align: 1px;
 }
 
-.xwrt-ota-pill-neutral {
-  color: var(--xwrt-muted);
+.ykingwrt-ota-pill-neutral {
+  color: var(--ykingwrt-muted);
 }
 
-.xwrt-ota-pill-primary,
-.xwrt-ota-pill-info {
-  color: var(--xwrt-accent);
+.ykingwrt-ota-pill-primary,
+.ykingwrt-ota-pill-info {
+  color: var(--ykingwrt-accent);
   border-color: currentColor;
 }
 
-.xwrt-ota-pill-success {
-  color: var(--xwrt-success);
+.ykingwrt-ota-pill-success {
+  color: var(--ykingwrt-success);
   border-color: currentColor;
 }
 
-.xwrt-ota-pill-warning {
-  color: var(--xwrt-warning);
+.ykingwrt-ota-pill-warning {
+  color: var(--ykingwrt-warning);
   border-color: currentColor;
 }
 
-.xwrt-ota-pill-danger {
-  color: var(--xwrt-danger);
+.ykingwrt-ota-pill-danger {
+  color: var(--ykingwrt-danger);
   border-color: currentColor;
 }
 
-.xwrt-ota-status {
-  color: var(--xwrt-muted);
+.ykingwrt-ota-status {
+  color: var(--ykingwrt-muted);
 }
 
-.xwrt-ota-status.is-error {
-  color: var(--xwrt-danger);
+.ykingwrt-ota-status.is-error {
+  color: var(--ykingwrt-danger);
 }
 
-.xwrt-ota .cbi-value-field {
+.ykingwrt-ota .cbi-value-field {
   overflow-wrap: anywhere;
 }
 
-.xwrt-ota .cbi-value {
+.ykingwrt-ota .cbi-value {
   align-items: baseline;
 }
 
-.xwrt-ota .cbi-value-title {
+.ykingwrt-ota .cbi-value-title {
   float: none;
 }
 
-.xwrt-ota .cbi-value-description {
+.ykingwrt-ota .cbi-value-description {
   margin-inline-start: 0;
   padding-inline-start: 0;
 }
 
-.xwrt-ota .cbi-value-description::before {
+.ykingwrt-ota .cbi-value-description::before {
   display: none;
 }
 
-.xwrt-ota .cbi-value-description:empty {
+.ykingwrt-ota .cbi-value-description:empty {
   display: none;
 }
 
-.xwrt-ota-actions {
+.ykingwrt-ota-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
 
-.xwrt-ota-proxy {
+.ykingwrt-ota-proxy {
   display: grid;
   grid-template-columns: minmax(0, 28rem) auto;
   justify-content: start;
@@ -152,23 +152,23 @@ const styles = `
   gap: 8px;
 }
 
-.xwrt-ota .xwrt-ota-proxy > input {
+.ykingwrt-ota .ykingwrt-ota-proxy > input {
   width: 100%;
   min-width: 0;
   max-width: none;
 }
 
-.xwrt-ota-proxy > button {
+.ykingwrt-ota-proxy > button {
   flex: none;
   justify-self: start;
 }
 
 @media (max-width: 560px) {
-  .xwrt-ota .cbi-value {
+  .ykingwrt-ota .cbi-value {
     display: block;
   }
 
-  .xwrt-ota .cbi-value > .cbi-value-title {
+  .ykingwrt-ota .cbi-value > .cbi-value-title {
     display: block;
     width: auto;
     max-width: none;
@@ -177,40 +177,40 @@ const styles = `
     float: none;
   }
 
-  .xwrt-ota .cbi-value > .cbi-value-field {
+  .ykingwrt-ota .cbi-value > .cbi-value-field {
     display: block;
     width: 100%;
     margin-left: 0;
   }
 
-  .xwrt-ota-proxy {
+  .ykingwrt-ota-proxy {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-.xwrt-ota-progress-meta {
+.ykingwrt-ota-progress-meta {
   display: flex;
   justify-content: flex-start;
   gap: 16px;
   flex-wrap: wrap;
   margin-top: 8px;
   font-size: 12.5px;
-  color: var(--xwrt-muted);
+  color: var(--ykingwrt-muted);
   font-variant-numeric: tabular-nums;
 }
 
-.xwrt-ota-progress.is-indeterminate > div {
+.ykingwrt-ota-progress.is-indeterminate > div {
   width: 100% !important;
-  animation: xwrt-ota-pulse 1.5s ease-in-out infinite;
+  animation: ykingwrt-ota-pulse 1.5s ease-in-out infinite;
 }
 
-@keyframes xwrt-ota-pulse {
+@keyframes ykingwrt-ota-pulse {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .xwrt-ota-progress.is-indeterminate > div {
+  .ykingwrt-ota-progress.is-indeterminate > div {
     animation: none;
   }
 }
@@ -316,7 +316,7 @@ return view.extend({
       this.confirmUpgrade();
     } else if (this.data?.phase === 'available' && this.data.has_update) {
       return this.start('download');
-    } else if (['idle', 'error'].includes(this.data?.phase)) {
+    } else if (['idle', 'error', 'current'].includes(this.data?.phase)) {
       return this.start('check');
     }
   },
@@ -345,6 +345,10 @@ return view.extend({
       label = '下载版本';
       actionable = true;
       variant = 'cbi-button-positive important';
+    } else if (data.phase === 'current') {
+      label = '检查更新';
+      actionable = true;
+      variant = 'cbi-button-action';
     } else if (data.phase === 'version_unknown') {
       label = '无法判断版本';
     } else if (['idle', 'error'].includes(data.phase)) {
@@ -366,9 +370,9 @@ return view.extend({
 
     const status = statusPills[data.phase] || [phases[data.phase] || data.phase, 'neutral'];
     this.statusPill.textContent = status[0];
-    this.statusPill.className = `xwrt-ota-pill xwrt-ota-pill-${status[1]}`;
+    this.statusPill.className = `ykingwrt-ota-pill ykingwrt-ota-pill-${status[1]}`;
     this.statusNode.textContent = data.message;
-    this.statusNode.className = `xwrt-ota-status${data.phase === 'error' ? ' is-error' : ''}`;
+    this.statusNode.className = `ykingwrt-ota-status${data.phase === 'error' ? ' is-error' : ''}`;
 
     this.facts.model.textContent = data.model || data.board || '未知设备';
     this.facts.current.textContent = data.current_description || [
@@ -377,6 +381,8 @@ return view.extend({
       data.current_revision,
     ].filter(Boolean).join(' ') || '无法读取';
     this.facts.latest.textContent = data.name || data.tag || '正在检查…';
+    this.facts.current_time.textContent = data.current_build_time || '未识别';
+    this.facts.latest_time.textContent = data.latest_build_time || '未识别';
     if (!this.proxyDirty && document.activeElement !== this.proxyInput)
       this.proxyInput.value = data.proxy_prefix || '';
 
@@ -422,7 +428,7 @@ return view.extend({
       ui.showModal('正在升级', [
         E('p', { class: 'spinning' }, '固件正在刷写，请勿断电。设备重启后将尝试重新连接。'),
       ]);
-      ui.awaitReconnect(window.location.host, '192.168.10.1', 'xwrt.lan');
+      ui.awaitReconnect(window.location.host, '10.10.10.1', 'ykingwrt.lan');
     }
   },
 
@@ -492,15 +498,15 @@ return view.extend({
       ]);
     };
 
-    this.statusPill = E('span', { class: 'xwrt-ota-pill xwrt-ota-pill-neutral' }, '尚未检查');
-    this.statusNode = E('span', { class: 'xwrt-ota-status', role: 'status', 'aria-live': 'polite' });
+    this.statusPill = E('span', { class: 'ykingwrt-ota-pill ykingwrt-ota-pill-neutral' }, '尚未检查');
+    this.statusNode = E('span', { class: 'ykingwrt-ota-status', role: 'status', 'aria-live': 'polite' });
     this.versionHint = E('div', { class: 'cbi-value-description' });
 
     this.progressFill = E('div', { style: 'width:0%' });
     this.progressBytes = E('span', {}, '—');
     this.progressState = E('span', {}, '');
     this.progressNode = E('div', {
-      class: 'xwrt-ota-progress cbi-progressbar',
+      class: 'ykingwrt-ota-progress cbi-progressbar',
       title: '',
       role: 'progressbar',
       'aria-valuemin': '0',
@@ -512,7 +518,7 @@ return view.extend({
       E('h3', {}, '固件下载'),
       E('div', { class: 'cbi-section-node' }, [
         this.progressNode,
-        E('div', { class: 'xwrt-ota-progress-meta' }, [this.progressBytes, this.progressState]),
+        E('div', { class: 'ykingwrt-ota-progress-meta' }, [this.progressBytes, this.progressState]),
       ]),
     ]);
 
@@ -543,7 +549,7 @@ return view.extend({
       click: ui.createHandlerFn(this, 'saveProxy'),
     }, '保存');
 
-    const page = E('div', { class: 'cbi-map xwrt-ota' }, [
+    const page = E('div', { class: 'cbi-map ykingwrt-ota' }, [
       E('style', {}, styles),
       E('h2', {}, '在线更新'),
       E('div', { class: 'cbi-map-descr' }, '自动匹配当前设备的正式版固件'),
@@ -552,7 +558,9 @@ return view.extend({
         E('div', { class: 'cbi-section-node' }, [
           fact('model', '当前设备'),
           fact('current', '当前固件版本'),
+          fact('current_time', '当前构建时间'),
           fact('latest', '最新版本'),
+          fact('latest_time', '最新构建时间'),
           E('div', { class: 'cbi-value' }, [
             E('label', { class: 'cbi-value-title' }, '状态'),
             E('div', { class: 'cbi-value-field' }, [
@@ -570,7 +578,7 @@ return view.extend({
       E('fieldset', { class: 'cbi-section' }, [
         E('h3', {}, '操作'),
         E('div', { class: 'cbi-section-node' }, [
-          E('div', { class: 'xwrt-ota-actions' }, [
+          E('div', { class: 'ykingwrt-ota-actions' }, [
             this.actionButton,
             this.cleanButton,
           ]),
@@ -582,7 +590,7 @@ return view.extend({
           E('div', { class: 'cbi-value' }, [
             E('label', { class: 'cbi-value-title' }, '下载代理前缀'),
             E('div', { class: 'cbi-value-field' }, [
-              E('div', { class: 'xwrt-ota-proxy' }, [
+              E('div', { class: 'ykingwrt-ota-proxy' }, [
                 this.proxyInput,
                 this.proxyButton,
               ]),
